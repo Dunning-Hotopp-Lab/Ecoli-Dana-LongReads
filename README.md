@@ -20,13 +20,13 @@ seqkit sample -s 13 -j 16 -p 0.17218 -o minion.LIG.sample.fastq minion.LIG.filte
 PacBio Sequel II
 seqkit sample -s 13 -j 16 -p 0.0212566 -o pbSequelII.sample.fastq pbSequelII.raw.fastq.gz
 
-### E. coli genome assembly using Canu <a name="#ecoli.canu"></a>
+### E. coli genome assembly using Canu <a name="ecoli.canu"></a>
 MinION
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq
 PacBio
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq
 
-### E. coli genome assembly using Unicycler <a name="#ecoli.uni"></a>
+### E. coli genome assembly using Unicycler <a name="ecoli.uni"></a>
 
 ## System requirements
 
