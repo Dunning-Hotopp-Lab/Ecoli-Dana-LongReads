@@ -14,7 +14,7 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
-MinION LIG
+MinION LIG  
 zcat minion.LIG.raw.fastq.gz | NanoLyse | gzip > minion.LIG.filter.fastq.gz
 seqkit sample -s 13 -j 16 -p 0.17218 -o minion.LIG.sample.fastq minion.LIG.filter.fastq.gz
 PacBio Sequel II
