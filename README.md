@@ -76,7 +76,7 @@ for f in \*\_err_rate; do awk '{print $1}' $f > ${f%\_e\*}\_pct_correct; done
 for f in \*\_trusted_blast_hits; do awk '{total = total + $4}END{print total}' $f > ${f%\_t\*}\_bases; done  
 for f in \*\_trusted_blast_hits; do awk '{total = total + $5}END{print total}' $f > ${f%\_t\*}\_mismatches; done  
 for f in \*\_trusted_blast_hits; do awk '{total = total + $6}END{print total}' $f > ${f%\_t\*}\_gaps; done  
-**Generate summary file**
+**Generate summary file**  
 for f in \*blast\_hits; do echo ${f%\_t\*} >> ecoli.correctness.names.txt  
 for f in \*pct_correct; do awk '{print $1}' $f >> ecoli.pct.correct.txt  
 for f in \*bases; do awk '{print $1}' $f >> ecoli.bases.txt  
