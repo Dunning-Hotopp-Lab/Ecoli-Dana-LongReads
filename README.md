@@ -71,18 +71,11 @@ for f in \*fasta; do makeblastdb -dbtype nucl -parse_seqids -in $f ; done
 **Retrieve the best BLAST hit for each trusted contig query**  
 for f in db/\*fasta; do blastn -db $f -query /local/projects-t3/RDBKO/ecoli.abyss/ecoli.abyss+velvet.5kb+.trusted.contigs.fasta -outfmt 6 | sort -nk1,1 -k12,12gr -k11,11g -k3,3gr | sort -u -nk1,1 > ${f%\_r\*}\_trusted.blast_hits; done  
 **Determine percentage correctness, aligned bases, mismatches, gap opens for long read assemblies**  
-for f in \*\_trusted_blast_hits; do python3 get_error_rate.py $f > ${f%\_t\*}\_err_rate; done
-for f in \*\_err_rate; do awk '{print $1}' $f > ${f%\_e\*}\_pct_correct; done
-for f in \*\_trusted_blast_hits; do awk '{total = total + $4}END{print total}' $f > ${f%\_t\*}\_bases; done  
-for f in \*\_trusted_blast_hits; do awk '{total = total + $5}END{print total}' $f > ${f%\_t\*}\_mismatches; done  
-for f in \*\_trusted_blast_hits; do awk '{total = total + $6}END{print total}' $f > ${f%\_t\*}\_gaps; done  
+for f in \*\_trusted_blast_hits; do python3 Wick2018_get_error_rate_edited.py $f > ${f%\_t\*}\_err_data; done  
 **Generate summary file**  
 for f in \*blast\_hits; do echo ${f%\_t\*} >> ecoli.correctness.names.txt  
-for f in \*pct_correct; do awk '{print $1}' $f >> ecoli.pct.correct.txt  
-for f in \*bases; do awk '{print $1}' $f >> ecoli.bases.txt  
-for f in \*mismatches; do awk '{print $1}' $f >> ecoli.mismatches.txt  
-for f in \*gaps; do awk '{print $1}' $f >> ecoli.gaps.txt  
-paste ecoli.correctness.names.txt ecoli.pct.correct.txt ecoli.bases.txt ecoli.mismatches.txt ecoli.gaps.txt > ecoli.correctness.summary.txt
+for f in \*err_data; do cat $f >> ecoli.correctness.data.txt; done 
+paste ecoli.correctness.names.txt ecoli.correctness.data.txt > ecoli.correctness.summary.txt  
 **Estimate chimeric reads using Alvis**  
 
 
