@@ -5,6 +5,7 @@
 
 #genome in $1, shortreadR1 in $2, shortreadR2 in $3, longread in $4
 
+#change name of output directory as needed
 mkdir -p pilon.long+short
 cd pilon.long+short
 cp $1 pilon0.fasta
