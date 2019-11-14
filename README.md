@@ -72,7 +72,7 @@ for f in \*fasta; do makeblastdb -dbtype nucl -parse_seqids -in $f ; done
 **Retrieve the best BLAST hit for each trusted contig query**  
 for f in db/\*fasta; do blastn -db $f -query /local/projects-t3/RDBKO/ecoli.abyss/ecoli.abyss+velvet.5kb+.trusted.contigs.fasta -outfmt 6 | sort -nk1,1 -k12,12gr -k11,11g -k3,3gr | sort -u -nk1,1 > ${f%\_r\*}\_trusted.blast_hits; done  
 **Determine percentage correctness, aligned bases, mismatches, gap opens for long read assemblies**  
-for f in \*\_trusted_blast_hits; do python3 Wick2018_get_error_rate_edited.py $f > ${f%\_t\*}\_err_data; done  
+for f in \*\_trusted_blast_hits; do python3 get_error_rate.py $f > ${f%\_t\*}\_err_data; done  
 **Generate summary file**  
 for f in \*blast\_hits; do echo ${f%\_t\*} >> ecoli.correctness.names.txt  
 for f in \*err_data; do cat $f >> ecoli.correctness.data.txt; done 
