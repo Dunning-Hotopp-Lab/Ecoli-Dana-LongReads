@@ -85,12 +85,19 @@ minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samto
 *PacBio*  
 minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq  | samtools sort -o sorted.bam  
 **Filter to retain primary reads mapped to E. coli genome**  
-samtools index sorted.bam  
-samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -o genome.primary.bam  
-**Convert BAM to FASTQ**  
-bamtofastq  
+samtools index sorted.bam
+The E. coli genome is named "1" in asssemblies, thus used as filtering region for samtools view
+samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 1 -bho genome.primary.bam  
+**Convert BAM to FASTA**  
+samtools bam2fq genome.primary.bam | seqtk seq -A - > primary.reads.fasta  
 **Alvis**  
-
+samtools faidx ecoli.unicycler.consensus.fasta 1 > ecoli.genome.fasta
+*First alignment against E. coli genome sequence*
+nucmer --prefix library.type ecoli.genome.fasta primary.reads.fasta  
+show-coords -rB library.type.delta > library.type.coords
+*Second alignment against cut-and-paste E.coli genome sequence*
+nucmer --prefix library.type.cut ecoli.genome.cut.fasta primary.reads.fasta  
+show-coords -rB library.type.cut.delta > library.type.cut.coords
 
 **Determine estimate for percentage chimeras**
 
