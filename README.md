@@ -13,8 +13,12 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 4. [E. coli genome assembly using Unicycler](#ecoli.uni)
 5. [E. coli BUSCO](#ecoli.busco)
 6. [E. coli assembly correctness](#ecoli.correct)
-7. [E. coli chimeric reads assessment](#ecoli.chimera)
-8. [E. coli plasmid analysis](#ecoli.plasmid)
+7. [E. coli chimeric reads assessment](#ecoli.chimera)  
+8. [E. coli plasmid analysis](#ecoli.plasmid)  
+9. [D. ananassae genome assembly using Canu](#dana.canu)  
+10. [D. ananassae genome assessment](#dana.eval)  
+11. [D. ananassae BUSCO](#dana.busco)  
+11. [D. ananassae chromosome map](#dana.chrom)
 
 
 
@@ -85,8 +89,8 @@ minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samto
 *PacBio*  
 minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq  | samtools sort -o sorted.bam  
 **Filter to retain primary reads mapped to E. coli genome**  
-samtools index sorted.bam
-The E. coli genome is named "1" in asssemblies, thus used as filtering region for samtools view
+samtools index sorted.bam  
+The E. coli genome is named "1" in asssemblies, thus used as filtering region for samtools view  
 samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 1 -bho genome.primary.bam  
 **Convert BAM to FASTA**  
 samtools bam2fq genome.primary.bam | seqtk seq -A - > primary.reads.fasta  
@@ -103,6 +107,12 @@ show-coords -rB library.type.cut.delta > library.type.cut.coords
 
 *Total primary reads mapped to genome*  
 samtools view genome.primary.bam -c  
+
+### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
+**Count primary reads mapped to genome, pMAR2, p5217**  
+samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c ecoli.genome  
+samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c pMAR2  
+samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c p5217  
 
 ## System requirements
 
