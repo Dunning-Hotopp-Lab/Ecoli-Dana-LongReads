@@ -13,14 +13,15 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 4. [E. coli genome assembly using Unicycler](#ecoli.uni)
 5. [E. coli BUSCO](#ecoli.busco)
 6. [E. coli assembly correctness](#ecoli.correct)
-7. [E. coli plasmid analysis](#ecoli.plasmid)
+7. [E. coli chimeric reads assessment](#ecoli.chimera)
+8. [E. coli plasmid analysis](#ecoli.plasmid)
 
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
 **MinION LIG**  
 zcat minion.LIG.raw.fastq.gz | NanoLyse | gzip > minion.LIG.filter.fastq.gz
-seqkit sample -s 13 -j 16 -p 0.17218 -o minion.LIG.sample.fastq minion.LIG.filter.fastq.gz  
+seqkit sample -s 13 -j 16 -p 0.17218 -o minion.LIGsample.fastq minion.LIG.filter.fastq.gz  
 **PacBio Sequel II**  
 seqkit sample -s 13 -j 16 -p 0.0212566 -o pbSequelII.sample.fastq pbSequelII.raw.fastq.gz
 
@@ -76,8 +77,25 @@ for f in \*\_trusted_blast_hits; do python3 Wick2018_get_error_rate_edited.py $f
 for f in \*blast\_hits; do echo ${f%\_t\*} >> ecoli.correctness.names.txt  
 for f in \*err_data; do cat $f >> ecoli.correctness.data.txt; done 
 paste ecoli.correctness.names.txt ecoli.correctness.data.txt > ecoli.correctness.summary.txt  
-**Estimate chimeric reads using Alvis**  
 
+### E. coli chimeric reads assessment <a name="ecoli.chimera"></a>  
+**Map reads to Unicycler consensus using minimap2**  
+*MinION*  
+minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o sorted.bam
+*PacBio*  
+minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq  | samtools sort -o sorted.bam  
+**Filter to retain primary reads mapped to E. coli genome**  
+samtools index sorted.bam  
+samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -o genome.primary.bam  
+**Convert BAM to FASTQ**  
+bamtofastq  
+**Alvis**  
+
+
+**Determine estimate for percentage chimeras**
+
+*Total primary reads mapped to genome*  
+samtools view genome.primary.bam -c  
 
 ## System requirements
 
