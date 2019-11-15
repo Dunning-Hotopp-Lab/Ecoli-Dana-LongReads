@@ -102,11 +102,20 @@ show-coords -rB library.type.delta > library.type.coords
 *Second alignment against cut-and-paste E.coli genome sequence*
 nucmer --prefix library.type.cut ecoli.genome.cut.fasta primary.reads.fasta  
 show-coords -rB library.type.cut.delta > library.type.cut.coords
-
+*Predict chimeras using Alvis*  
+alvis/dist/Alvis.jar -type contigAlignment -inputfmt coords -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in library.type.coords -outdir /path/to/outdir/ -out out.prefix  
+mv chimeras.txt ecoli.genome.chimeras.txt  
+alvis/dist/Alvis.jar -type contigAlignment -inputfmt coords -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in library.type.cut.coords -outdir /path/to/outdir/ -out out.prefix  
+mv chimeras.txt ecoli.genome.cut.chimeras.txt
 **Determine estimate for percentage chimeras**
-
+*Identify reads assigned as chimeras in both original and cut E.coli genome*
+cat ecoli.genome.chimeras.txt ecoli.genome.cut.chimeras.txt | awk '{print $1}' - | sort -n | uniq -d > chimeras.candidates.txt  
+*Manual inspection*  
+java -Xmx10g -jar picard-tools-2.5.0/picard.jar FilterSamReads I=sorted.bam O=chimeras.bam READ_LIST_FILE=chimeras_candidates.txt FILTER=includeReadList  
+wc -l chimeras.candidates.txt  
 *Total primary reads mapped to genome*  
 samtools view genome.primary.bam -c  
+percentage chimeras = chimeras candidates / primary reads
 
 ### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
 **Count primary reads mapped to genome, pMAR2, p5217**  
