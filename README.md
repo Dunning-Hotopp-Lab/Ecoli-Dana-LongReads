@@ -91,7 +91,7 @@ minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.cut.fasta minion.reads.fastq 
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq > mapped.paf  
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.cut.fasta pb.reads.fastq > mapped.cut.paf  
 **Filter to retain reads mapped to E. coli genome**
-*FASTA header is ecoli.genome and ecoli.genome.cut, respectively*
+*FASTA header is ecoli.genome and ecoli.genome.cut, respectively*  
 grep ecoli.genome mapped.paf > genome.paf  
 grep ecoli.genome.cut mapped.cut.paf > genome.cut.paf  
 **Predict chimeras using Alvis**  
@@ -99,28 +99,9 @@ alvis/dist/Alvis.jar -type contigAlignment -inputfmt paf -outputfmt svg -chimera
 mv chimeras.txt genome.chimeras.txt  
 alvis/dist/Alvis.jar -type contigAlignment -inputfmt paf -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in genome.cut.paf -outdir /path/to/outdir/ -out out.prefix  
 mv chimeras.txt genome.chimeras.cut.txt  
-
-samtools index sorted.bam  
-The E. coli genome is named "1" in asssemblies, thus used as filtering region for samtools view  
-samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 1 -bho genome.primary.bam  
-**Convert BAM to FASTA**  
-samtools bam2fq genome.primary.bam | seqtk seq -A - > primary.reads.fasta  
-**Alvis**  
-samtools faidx ecoli.unicycler.consensus.fasta 1 > ecoli.genome.fasta
-*First alignment against E. coli genome sequence*
-nucmer --prefix library.type ecoli.genome.fasta primary.reads.fasta  
-show-coords -rB library.type.delta > library.type.coords
-*Second alignment against cut-and-paste E.coli genome sequence*
-nucmer --prefix library.type.cut ecoli.genome.cut.fasta primary.reads.fasta  
-show-coords -rB library.type.cut.delta > library.type.cut.coords
-*Predict chimeras using Alvis*  
-alvis/dist/Alvis.jar -type contigAlignment -inputfmt coords -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in library.type.coords -outdir /path/to/outdir/ -out out.prefix  
-mv chimeras.txt ecoli.genome.chimeras.txt  
-alvis/dist/Alvis.jar -type contigAlignment -inputfmt coords -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in library.type.cut.coords -outdir /path/to/outdir/ -out out.prefix  
-mv chimeras.txt ecoli.genome.cut.chimeras.txt  
 **Determine estimate for percentage chimeras**
 *Identify reads assigned as chimeras in both original and cut E.coli genome*
-cat ecoli.genome.chimeras.txt ecoli.genome.cut.chimeras.txt | awk '{print $1}' - | sort -n | uniq -d > chimeras.candidates.txt  
+cat genome.chimeras.txt genome.cut.chimeras.txt | awk '{print $1}' - | sort -n | uniq -d > chimeras.candidates.txt  
 **Re-map, filter reads to include only chimeras, manual inspection**  
 *Map MinION*  
 minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq | samtools sort -o sorted.bam  
@@ -128,7 +109,7 @@ minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq | s
 minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o sorted.bam  
 *Filter reads*  
 java -Xmx10g -jar picard-tools-2.5.0/picard.jar FilterSamReads I=sorted.bam O=chimeras.bam READ_LIST_FILE=chimeras_candidates.txt FILTER=includeReadList
-samtools index chimeras.bam
+samtools index chimeras.bam  
 **Determine estimate for percentage chimeras**  
 wc -l chimeras.candidates.txt  
 *Total primary reads mapped to genome*  
