@@ -90,7 +90,7 @@ minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.cut.fasta minion.reads.fastq 
 *PacBio*  
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq > mapped.paf  
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.cut.fasta pb.reads.fastq > mapped.cut.paf  
-**Filter to retain reads mapped to E. coli genome**
+**Filter to retain reads mapped to E. coli genome**  
 *FASTA header is ecoli.genome and ecoli.genome.cut, respectively*  
 grep ecoli.genome mapped.paf > genome.paf  
 grep ecoli.genome.cut mapped.cut.paf > genome.cut.paf  
@@ -117,10 +117,36 @@ samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 ecoli.genome -c
 percentage chimeras = chimeras candidates / primary reads
 
 ### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
-**Count primary reads mapped to genome, pMAR2, p5217**  
+**Produce depth counts for reads mapped to genome, pMAR2, p5217**
+samtools depth -aa -m 100000000 sorted.bam > sorted.depth.txt
+**Count total depth across genome, pMAR2, p5217**  
+grep ecoli.genome sorted.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
+grep pMAR2 sorted.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
+grep p5217 sorted.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -
+
+
 samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c ecoli.genome  
 samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c pMAR2  
 samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c p5217  
+
+
+### D.ananassae genome assembly using Canu <a name="dana.canu"></a>
+**MinION**  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq  
+**PacBio**  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq  
+**Hybrid**  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq -pacbio-raw raw.pacbio.reads.fastq    
+**Genome polishing**  
+*Long read*  
+pilon_iter.sh canu/assembly.contigs.fasta canu/assembly.trimmedReads.fasta  
+*Long + short read*  
+pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
+*PacBio HiFi*  
+pilon_iter.sh canu/assembly.contigs.fasta pb.HiFi.ccs.fastq.gz
+
+### D. ananassae BUSCO <a name="dana.busco"></a>  
+python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
 
 ## System requirements
 
