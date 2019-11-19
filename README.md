@@ -117,18 +117,13 @@ samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 ecoli.genome -c
 percentage chimeras = chimeras candidates / primary reads
 
 ### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
-**Produce depth counts for reads mapped to genome, pMAR2, p5217**
-samtools depth -aa -m 100000000 sorted.bam > sorted.depth.txt
+**Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
+samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 -bho primary.bam  
+samtools depth -aa -m 100000000 primary.bam > primary.depth.txt  
 **Count total depth across genome, pMAR2, p5217**  
-grep ecoli.genome sorted.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
-grep pMAR2 sorted.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
-grep p5217 sorted.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -
-
-
-samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c ecoli.genome  
-samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c pMAR2  
-samtools view sorted.bam -c -F 4 -F 256 -F 1024 -F 2048 -c p5217  
-
+grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
+grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
+grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -
 
 ### D.ananassae genome assembly using Canu <a name="dana.canu"></a>
 **MinION**  
