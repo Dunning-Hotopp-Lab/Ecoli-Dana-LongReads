@@ -18,7 +18,7 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 9. [D. ananassae genome assembly using Canu](#dana.canu)  
 10. [D. ananassae genome assessment](#dana.eval)  
 11. [D. ananassae BUSCO](#dana.busco)  
-11. [D. ananassae chromosome map](#dana.chrom)
+11. [Alignment of contigs to D. ananassae polytene map](#dana.map)
 
 
 
@@ -142,6 +142,17 @@ pilon_iter.sh canu/assembly.contigs.fasta pb.HiFi.ccs.fastq.gz
 
 ### D. ananassae BUSCO <a name="dana.busco"></a>  
 python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
+
+### Alignment of contigs to D. ananassae polytene map <a name="dana.map"></a>  
+*Initial BLAST against polished contigs to determine contig orientation*  
+makeblastdb -in polished.contigs.fasta -out polished.contigs.fasta -dbtype nucl -parse_seqids  
+blastn -query mapping_loci.fasta -db polished.contigs.fasta -max_target_seqs 10 -max_hsps 10 -outfmt 6 > initial.blast.out  
+*After manual inspection, reverse complementation if necessary* 
+samtools faidx polished.contigs.fasta fwd.contig.name >> polished.contigs.correct.fasta  
+samtools faidx -i polished.contigs.fasta rev.contig.name >> polished.contigs.correct.fasta  
+*Second round of BLAST. Can limit target sequences if alignment lengths of BLAST matches are similar to queries. Also used custom output columns*  
+makeblastdb -in polished.contigs.correct.fasta -out polished.contigs.correct.fasta -dbtype nucl -parse_seqids  
+blastn -query mapping_loci.fasta -db polished.contigs.correct.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out  
 
 ## System requirements
 
