@@ -43,7 +43,7 @@ canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe
 **PacBio**  
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq  
 **Polish, circularize, and rotate**  
-pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
+pilon_iter.sh canu/assembly.contigs.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq canu/assembly.trimmedReads.fasta  
 circlator minimus2 pilon5.fasta circularise.fasta  
 circlator fixstart --genes_fa ecoli.dnaA.DNA.fasta circularise.fasta rotated.fasta  
 **Rename FASTA**  
@@ -53,7 +53,7 @@ for f in *_contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' 
 **Long read assembly**  
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  -o output.dir -t 32  
 **Hybrid assembly**  
-unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  --short1 short.reads.R1.fastq --short2 short.reads.R2.fastq -o output.dir -t 32  
+unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  --short1 illumina.reads.R1.fastq --short2 illumina.reads.R2.fastq -o output.dir -t 32  
 **Rename FASTA**  
 for f in \*contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' < $f > ${f%\_c\*})\_contigs_rn.fasta; done
 
@@ -62,9 +62,9 @@ python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o b
 
 ### E. coli assembly correctness <a name="ecoli.correct"></a>  
 **De novo assembly of Illumina reads using AbySS**  
-abyss-pe -j 16 name=ecoli_illumina_abyss k=116 in='short.reads.R1.fastq short.reads.R2.fastq'  
+abyss-pe -j 16 name=ecoli_illumina_abyss k=116 in='illumina.reads.R1.fastq illumina.reads.R2.fastq'  
 **De novo assembly of Illumina reads using velvet**  
-velveth /velveth/output/dir/ 115 -short -fastq short.reads.R1.fastq  
+velveth /velveth/output/dir/ 115 -short -fastq illumina.reads.R1.fastq  
 velvetg /velveth/output/dir/  
 **Identify trusted contigs, >5kb and 100% match between ABySS and velvet**  
 mummer -mum -b -s -n -l 5000 ecoli.abyss.contigs.fasta ecoli.velvet.contigs.fasta | grep -i -P "[acgt]{5000,}" | awk '{name += 1; print ">"name"\n"substr(toupper($0), 100, length($0)-200)}' > ecoli.abyss+velvet.trusted.contigs.fasta  
@@ -118,8 +118,20 @@ percentage chimeras = chimeras candidates / primary reads
 
 ### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
 **Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
+*Filter long read BAM files to retain primary reads*
 samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 -bho primary.bam  
-samtools depth -aa -m 100000000 primary.bam > primary.depth.txt  
+*Calculcate sequencing depth*  
+samtools depth -aa -m 100000000 primary.bam > primary.depth.txt 
+*Map short read data*
+bwa mem -k 23 -t 8 ecoli.unicycler.consensus.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq | samtools -bho mapped.illumina.bam *Sort BAM*  
+picard.jar SortSam I=mapped.illumina.bam O=sorted.illumina.bam SORT_ORDER=coordinate CREATE_INDEX=true VALIDATION_STRINGENCY=SILENT TMP_DIR=/local/scratch/JMattick/temp/  
+*Mark Duplicates*  
+picard.jar MarkDuplicates I=sorted.illumina.bam O=dupsmarked.illumina.bam M=dupsmarked.illumina.metrics VALIDATION_STRINGENCY=SILENT AS=true CREATE_INDEX=true  
+*Filter to retain primary reads*  
+samtools view dupsmarked.illumina.bam -F 4 -F 256 -F 1024 -F 2048 -bho primary.illumina.bam  
+*Calculcate sequencing depth*  
+samtools depth -aa -m 100000000 primary.illumina.bam > primary.illumina.depth.txt
+
 **Count total depth across genome, pMAR2, p5217**  
 grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
 grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
