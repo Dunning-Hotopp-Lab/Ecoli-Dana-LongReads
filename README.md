@@ -146,7 +146,7 @@ canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq -pacbio-raw raw.pacbio.reads.fastq 
 
 
-assemblathon_stats.pl contigs.fasta
+assemblathon_stats.pl contigs.fasta -csv -graph -genome_size 240000000
 
 **Genome polishing**  
 *Long read*  
