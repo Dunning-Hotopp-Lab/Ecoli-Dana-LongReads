@@ -143,7 +143,11 @@ canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe
 **PacBio**  
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq  
 **Hybrid**  
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq -pacbio-raw raw.pacbio.reads.fastq    
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq -pacbio-raw raw.pacbio.reads.fastq 
+
+
+assemblathon_stats.pl contigs.fasta
+
 **Genome polishing**  
 *Long read*  
 pilon_iter.sh canu/assembly.contigs.fasta canu/assembly.trimmedReads.fasta  
@@ -151,6 +155,8 @@ pilon_iter.sh canu/assembly.contigs.fasta canu/assembly.trimmedReads.fasta
 pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
 *PacBio HiFi*  
 pilon_iter.sh canu/assembly.contigs.fasta pb.HiFi.ccs.fastq.gz
+
+
 
 ### D. ananassae BUSCO <a name="dana.busco"></a>  
 python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
