@@ -233,9 +233,16 @@ pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.f
 assemblathon_stats.pl contigs.fasta -csv -graph -genome_size 240000000
 **D. ananassae QUAST-LG** 
 ```
+use python-3.5
 echo "/home/etvedte/scripts/quast-5.0.2/quast.py ../dana.hybrid.LIG+SQII.pilon.l_contigs.rn.fasta ../dana.hybrid.RAPID+SQII.pilon.l_contigs.fasta -r /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic_scaffolds.fna -o quast_test -t 8 --large -k --est-ref-size 240000000 --fragmented" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 8 -N quast.LG -cwd -V
-```
 
+echo "kat comp -n -t 16 -o minion.RAPID.v.illumina /local/projects-t3/RDBKO/sequencing/RANDD_LIG_Dana_20190405_merged_pass.fastq.gz /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp.reads -cwd -V
+
+```
+**KAT**
+```
+use kat-2.4.0
+echo "kat comp -t 16 -o minion.RAPID.assembly /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.pilon.l_contigs.fasta" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp -cwd -V
 **D. ananassae BUSCO**  
 ```
 python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
