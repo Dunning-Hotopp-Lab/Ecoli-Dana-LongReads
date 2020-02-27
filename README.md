@@ -119,7 +119,7 @@ percentage chimeras = chimeras candidates / primary reads
 ### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
 **Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
 *Filter long read BAM files to retain primary reads*
-samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 -bho primary.bam  
+samtools view sorted.bam -F 4 -F 256 -F 2048 -bho primary.bam  
 *Calculcate sequencing depth*  
 samtools depth -aa -m 100000000 primary.bam > primary.depth.txt 
 *Map short read data*
