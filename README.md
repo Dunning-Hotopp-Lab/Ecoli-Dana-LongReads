@@ -211,6 +211,27 @@ grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 d
 grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  
 ```
 
+### Ecoli DNA mod
+```
+PATH=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin:"$PATH"
+
+qsub -P jdhotopp-lab -q threaded.q  -pe thread 32 -l mem_free=10G -N guppy -cwd /local/projects-t3/RDBKO/scripts/MinIONGuppyBasecall_v3.1.5.sh -fast5_dir /local/projects-t3/RDBKO/sequencing/RANDD_LIG_Ecoli_MS100122513/20190405_1744_MN23690_FAK57346_fe910659/fast5/ -output_dir /local/projects-t3/RDBKO/ecoli.epi/RANDD_LIG_Ecoli_MS100122513 -config dna_r9.4.1_450bps_fast.cfg
+
+echo "multi_to_single_fast5 -i workspace -s single_fast5 -t 16" | qsub -P jdhotopp-lab -q threaded.q -pe thread 16 -l mem_free=50G -N multi_to_single_fast5 -cwd -V
+
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo resquiggle single_fast5 /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.resquiggle -cwd -V
+
+model
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications alternative_model --fast5-basedirs single_fast5/ --statistics-file-basename 5mC.6mA.stats --alternate-bases 5mC 6mA --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
+
+denovo
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications de_novo --fast5-basedirs single_fast5/ --statistics-file-basename denovo.stats --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
+
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output browser_files --fast5-basedirs single_fast5 --statistics-filename tombo.stats --file-types dampened_fraction --browser-file-basename mod.tombo" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.textoutput.browser -cwd -V
+
+echo -e "/usr/local/packages/meme-4.12.0/bin/meme -oc RANDD_RAPID_Ecoli.tombo.stats.dam.meme -dna -mod zoops -nmotifs 50 tombo_results.significant_regions.fasta" | qsub -P jdhotopp-lab -l mem_free=5G -N meme -cwd
+```
+
 ### D.ananassae genome assembly using Canu <a name="dana.canu"></a>
 **MinION**  
 ```
