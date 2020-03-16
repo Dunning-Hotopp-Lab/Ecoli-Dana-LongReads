@@ -229,6 +229,10 @@ echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_mod
 
 echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output browser_files --fast5-basedirs single_fast5 --statistics-filename tombo.stats --file-types dampened_fraction --browser-file-basename mod.tombo" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.textoutput.browser -cwd -V
 
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output signif_sequence_context --fast5-basedirs single_fast5 --statistics-filename dana.altmodel.5mC.tombo.stats --num-regions 1000 --num-bases 50" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.signif.context -cwd -V
+
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo plot most_significant --fast5-basedirs single_fast5 --statistics-filename dana.altmodel.5mC.tombo.stats --plot-standard-model --plot-alternate-model 5mC --pdf-filename 5mC.mostsignificant.sites.pdf" | qsub -P jdhotopp-lab -l mem_free=20G -N tombo.plot -cwd -V
+
 echo -e "/usr/local/packages/meme-4.12.0/bin/meme -oc RANDD_RAPID_Ecoli.tombo.stats.dam.meme -dna -mod zoops -nmotifs 50 tombo_results.significant_regions.fasta" | qsub -P jdhotopp-lab -l mem_free=5G -N meme -cwd
 ```
 
