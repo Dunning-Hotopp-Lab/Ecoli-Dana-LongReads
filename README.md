@@ -212,6 +212,25 @@ grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 d
 ```
 
 ### Ecoli DNA mod
+
+**PacBio**
+samtools index ecoli.genome.mapped.pbmm2.RSII_sorted.bam
+/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/pbindex ecoli.genome.mapped.pbmm2.RSII_sorted.bam
+echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/ipdSummary ecoli.genome.mapped.pbmm2.RSII_sorted.bam --reference /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta --gff rsII.basemods.ALL.gff --csv rsII.basemods.ALL.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N smrt.ipdsummary -cwd
+
+echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/motifMaker find -f /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta -g rsII.basemods.ALL.gff -o rsII.motifs.csv" | qsub -P jdhotopp-lab -l mem_free=10G -cwd -N motif.find
+
+echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/motifMaker reprocess -f /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta -g rsII.basemods.ALL.gff -m rsII.motifs.csv -o rsII.motifs.gff" | qsub -P jdhotopp-lab -l mem_free=10G -cwd -N motif.reprocess
+
+```
+/local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type SubreadSet --name dana.sequelII /path/to/subreadset.xml  /path/to/subreads.bam
+/local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type ReferenceSet --name dana.chr2R /path/to/referenceset.xml /path/to/chr2R.fasta
+
+
+```
+echo "/local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e /local/projects-t3/RDBKO/sequencing/E2348_69_2_25_19_PACBIO_DATA/RANDD_20190405_S64018_PL100122513-1_C01.subreadset.xml -e /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.genome+plasmids.referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True" | qsub -P jdhotopp-lab -l mem_free=50G -N pb_basemods -cwd
+
+
 ```
 PATH=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin:"$PATH"
 
@@ -222,18 +241,26 @@ echo "multi_to_single_fast5 -i workspace -s single_fast5 -t 16" | qsub -P jdhoto
 echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo resquiggle single_fast5 /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.resquiggle -cwd -V
 
 model
-echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications alternative_model --fast5-basedirs single_fast5/ --statistics-file-basename 5mC.6mA.stats --alternate-bases 5mC 6mA --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications alternative_model --fast5-basedirs single_fast5 --statistics-file-basename RAPID.alt --alternate-bases 5mC 6mA --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
 
 denovo
-echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications de_novo --fast5-basedirs single_fast5/ --statistics-file-basename denovo.stats --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo detect_modifications de_novo --fast5-basedirs single_fast5 --statistics-file-basename RAPID.denovo --processes 16" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.detect -cwd -V
 
-echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output browser_files --fast5-basedirs single_fast5 --statistics-filename tombo.stats --file-types dampened_fraction --browser-file-basename mod.tombo" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.textoutput.browser -cwd -V
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output browser_files --fast5-basedirs single_fast5 --statistics-filename RAPID.denovo.tombo.stats --file-types dampened_fraction --browser-file-basename RAPID.denovo" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.textoutput.browser -cwd -V
 
-echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo text_output signif_sequence_context --fast5-basedirs single_fast5 --statistics-filename dana.altmodel.5mC.tombo.stats --num-regions 1000 --num-bases 50" | qsub -P jdhotopp-lab -q threaded.q -pe thread 8 -l mem_free=50G -N tombo.signif.context -cwd -V
 
 echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo plot most_significant --fast5-basedirs single_fast5 --statistics-filename dana.altmodel.5mC.tombo.stats --plot-standard-model --plot-alternate-model 5mC --pdf-filename 5mC.mostsignificant.sites.pdf" | qsub -P jdhotopp-lab -l mem_free=20G -N tombo.plot -cwd -V
 
 echo -e "/usr/local/packages/meme-4.12.0/bin/meme -oc RANDD_RAPID_Ecoli.tombo.stats.dam.meme -dna -mod zoops -nmotifs 50 tombo_results.significant_regions.fasta" | qsub -P jdhotopp-lab -l mem_free=5G -N meme -cwd
+```
+motif-based plotting
+```
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo plot motif_with_stats --fast5-basedirs single_fast5 --statistics-filename RAPID.denovo.tombo.stats --genome-fasta /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta --motif GATC --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename RAPID.denovo.plot.GATC.pdf" | qsub -P jdhotopp-lab -l mem_free=20G -N tombo.plot -cwd -V
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo plot motif_with_stats --fast5-basedirs single_fast5 --statistics-filename RAPID.denovo.tombo.stats --genome-fasta /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta --motif CCWGG --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename RAPID.denovo.plot.CCWGG.pdf" | qsub -P jdhotopp-lab -l mem_free=20G -N tombo.plot -cwd -V
+```
+ROC curve - needs to be done on command line
+```
+/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo plot roc --statistics-filenames RAPID.alt.5mC.tombo.stats RAPID.alt.6mA.tombo.stats RAPID.denovo.tombo.stats --motif-descriptions CCWGG:2:"dcm 5mC Alt. Model" GATC:2:"dam 6mA Alt. Model" CCWGG:2:"dcm 5mC De Novo"::GATC:2:"dam 6mA De Novo" --genome-fasta /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.consensus.fasta
 ```
 
 ### D.ananassae genome assembly using Canu <a name="dana.canu"></a>
