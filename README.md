@@ -302,6 +302,8 @@ echo "kat comp -n -t 16 -o minion.RAPID.v.illumina /local/projects-t3/RDBKO/sequ
 ```
 use kat-2.4.0
 echo "kat comp -t 16 -o minion.RAPID.assembly /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.pilon.l_contigs.fasta" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp -cwd -V
+kat plot spectra-cn -x 150 -p pdf -o Miller2018_cHi_illumina-main.mx.spectra-cn.pdf Miller2018_cHi_illumina-main.mx
+
 **D. ananassae BUSCO**  
 ```
 python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
