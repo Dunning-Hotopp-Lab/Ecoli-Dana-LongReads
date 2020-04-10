@@ -214,6 +214,7 @@ grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 d
 ### Ecoli DNA mod
 
 **PacBio**
+```
 samtools index ecoli.genome.mapped.pbmm2.RSII_sorted.bam
 /usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/pbindex ecoli.genome.mapped.pbmm2.RSII_sorted.bam
 echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/ipdSummary ecoli.genome.mapped.pbmm2.RSII_sorted.bam --reference /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta --gff rsII.basemods.ALL.gff --csv rsII.basemods.ALL.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N smrt.ipdsummary -cwd
@@ -222,23 +223,24 @@ echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/b
 
 echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/motifMaker reprocess -f /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.genome.fasta -g rsII.basemods.ALL.gff -m rsII.motifs.csv -o rsII.motifs.gff" | qsub -P jdhotopp-lab -l mem_free=10G -cwd -N motif.reprocess
 
-```
+
 echo "/local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/bamsieve --percentage 2.16 --seed 13 /local/projects-t3/RDBKO/sequencing/E2348_69_2_25_19_PACBIO_DATA/RANDD_20190405_S64018_PL100122513-1_C01.subreads.bam /local/projects-t3/RDBKO/sequencing/E2348_69_2_25_19_PACBIO_DATA/RANDD_20190405_S64018_PL100122513-1_C01.300X.subset.subreads.bam" | qsub -P jdhotopp-lab -l mem_free=50G -N pb_bamsieve -cwd
 
 /local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type SubreadSet --name dana.sequelII /path/to/subreadset.xml  /path/to/subreads.bam
 /local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type ReferenceSet --name dana.chr2R /path/to/referenceset.xml /path/to/chr2R.fasta
 
-
-```
 echo "/local/projects-t3/RDBKO/scripts/smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e /local/projects-t3/RDBKO/sequencing/E2348_69_2_25_19_PACBIO_DATA/RANDD_20190405_S64018_PL100122513-1_C01.subreadset.xml -e /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.genome+plasmids.referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True" | qsub -P jdhotopp-lab -l mem_free=50G -N pb_basemods -cwd
+```
 
-
+**MinION tombo**
 ```
 PATH=/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin:"$PATH"
 
 qsub -P jdhotopp-lab -q threaded.q  -pe thread 32 -l mem_free=10G -N guppy -cwd /local/projects-t3/RDBKO/scripts/MinIONGuppyBasecall_v3.1.5.sh -fast5_dir /local/projects-t3/RDBKO/sequencing/RANDD_LIG_Ecoli_MS100122513/20190405_1744_MN23690_FAK57346_fe910659/fast5/ -output_dir /local/projects-t3/RDBKO/ecoli.epi/RANDD_LIG_Ecoli_MS100122513 -config dna_r9.4.1_450bps_fast.cfg
 
 echo "multi_to_single_fast5 -i workspace -s single_fast5 -t 16" | qsub -P jdhotopp-lab -q threaded.q -pe thread 16 -l mem_free=50G -N multi_to_single_fast5 -cwd -V
+
+echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir single_fast5 --fastq-filenames pass/merged.fastq --processes 16" | qsub -P jdhotopp-lab -q threaded.q -pe thread 16 -l mem_free=5G -N tombo_prep -cwd
 
 echo "/local/aberdeen2rw/julie/Matt_dir/packages/miniconda3/bin/tombo resquiggle single_fast5 /local/projects-t3/RDBKO/ecoli.postassembly/mmap2/ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 16 -N tombo.resquiggle -cwd -V
 
