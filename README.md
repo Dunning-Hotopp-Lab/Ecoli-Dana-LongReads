@@ -328,6 +328,10 @@ makeblastdb -in polished.contigs.correct.fasta -out polished.contigs.correct.fas
 blastn -query mapping_loci.fasta -db polished.contigs.correct.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out  
 ```
 
+**filter out chromosomes, redo QUAST stats
+/usr/local/packages/bbtools/filterbyname.sh in=dana.minion.RAPID.raw_contigs.fasta out=dana.minion.RAPID.raw_contigs.nonchr.fasta names=dana.minion.RAPID.raw_contigs.chr.list include=f
+
+
 ## System requirements
 
 R scripts were run using Windows 10 x64 with RStudio v1.1.463 using this R session:
