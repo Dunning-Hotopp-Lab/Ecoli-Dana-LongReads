@@ -300,6 +300,12 @@ echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.p
 echo "kat comp -n -t 16 -o minion.RAPID.v.illumina /local/projects-t3/RDBKO/sequencing/RANDD_LIG_Dana_20190405_merged_pass.fastq.gz /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp.reads -cwd -V
 
 ```
+
+non-chromosomal contigs
+```
+echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.minion.LIG.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.pb.sqII.raw_contigs.nonchr.fasta /local/projects-t3/LGT/Dananassae_2020/dana.quickmerge/flye+canu.FREEZE.custom.params/pilon.long.bases/dana.assembly.FREEZE.plusMITO.6.1.20.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/Miller2018/Dana.pass.minimap2.racon.x3.pilon.x3.rh.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic_scaffolds.nonchr.fna -o quast_all_nonchr -t 24 --large -m 0 --split-scaffolds" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 24 -N quast.LG -cwd -V
+```
+
 **KAT**
 ```
 use kat-2.4.0
