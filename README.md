@@ -9,16 +9,15 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 ## Table of Contents
 1. [Prepare sequencing files for assembly](#ecoli.prep)
 2. [Determine read length distributions](#ecoli.read)
-3. [E. coli genome assembly using Canu](#ecoli.canu)
-4. [E. coli genome assembly using Unicycler](#ecoli.uni)
-5. [E. coli BUSCO](#ecoli.busco)
-6. [E. coli assembly correctness](#ecoli.correct)
-7. [E. coli chimeric reads assessment](#ecoli.chimera)  
-8. [E. coli plasmid analysis](#ecoli.plasmid)  
-9. [Ecoli DNA modification analysis](#ecoli.dna.mod)  
-10. [D. ananassae genome assembly using Canu](#dana.canu)  
-11. [D. ananassae genome assessment](#dana.eval)  
-12. [Alignment of contigs to D. ananassae polytene map](#dana.map)
+3. [E. coli genome assembly](#ecoli.asm)
+4. [Evaluation of E. coli genome assemblies and chimeras](#ecoli.eval)
+5. [Ecoli DNA modification analysis](#ecoli.dna.mod)  
+6. [E. coli plasmid quantification](#ecoli.plasmid)  
+
+10. [D. ananassae genome assembly](#dana.canu)
+11. [Dana.UMIGS genome assembly] (#dana.umigs)
+12. [D. ananassae genome assessment](#dana.eval)  
+13. [Alignment of contigs to D. ananassae polytene map](#dana.map)
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
@@ -46,12 +45,12 @@ scripts/Ecoli_Long_Read_Analysis.Rmd
 seqkit sample -s 13 -j 16 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
 seqkit sample -s 13 -j 16 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
 ```
-### E. coli genome assembly using Canu <a name="ecoli.canu"></a>
-**ONT assembly**  
+### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
+**Canu ONT assembly**  
 ```
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq 
 ```
-**PacBio** 
+**Canu PacBio assembly** 
 ```
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq
 ```
@@ -62,23 +61,20 @@ scripts/pilon_iter.sh assembly.fasta illumina.reads.R1.fastq illumina.reads.R2.f
 circlator minimus2 pilon5.fasta circularise.fasta  
 circlator fixstart --genes_fa ecoli.dnaA.fasta circularise.fasta rotated.fasta  
 ```
-
-### E. coli genome assembly using Unicycler <a name="ecoli.uni"></a>
-**Long read assembly**  
+**Unicycler long read assembly**  
 ```
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  -o output.dir -t 32  
 ```
-**Hybrid assembly**  
+**Unicycler hybrid assembly**  
 ```
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  --short1 illumina.reads.R1.fastq --short2 illumina.reads.R2.fastq -o output.dir -t 32  
 ```
 
-### E. coli BUSCO <a name="ecoli.busco"></a>  
+### Evaluation of E. coli genome assemblies and chimeras <a name="ecoli.eval"></a>   
+**BUSCO** 
 ```
 python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l bacteria_odb9 -m geno  
 ```
-
-### E. coli assembly correctness <a name="ecoli.correct"></a>  
 **De novo assembly of Illumina reads using AbySS**  
 ```
 abyss-pe -j 16 name=ecoli_illumina_abyss k=116 in='illumina.reads.R1.fastq illumina.reads.R2.fastq'  
@@ -114,8 +110,7 @@ for f in \*err_data; do cat $f >> ecoli.correctness.data.txt; done
 paste ecoli.correctness.names.txt ecoli.correctness.data.txt > ecoli.correctness.summary.txt  
 ```
 
-### E. coli chimeric reads assessment <a name="ecoli.chimera"></a>  
-**Map reads to Unicycler consensus using minimap2. Second round of mapping to cut-and-paste E.coli genome sequence**  
+**E. coli chimeric reads assessment**  
 *ONT reads*  
 ```
 minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq > mapped.paf  
@@ -168,7 +163,68 @@ wc -l chimeras.candidates.txt
 samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 ecoli.genome -c  
 ```
 
-### E. coli plasmid analysis <a name="ecoli.plasmid"></a>  
+### Ecoli DNA modification analysis <a name="ecoli.dna.mod"></a>  
+
+**PacBio RS II reads**
+```
+pbmm2 align ecoli.unicycler.consensus.fasta subreads.bam ecoli.PB.mapped_sorted.bam --sort -j 16 -J 8
+samtools index ecoli.PB.mapped_sorted.bam
+pbindex ecoli.PB.mapped_sorted.bam
+ipdSummary ecoli.PB.mapped_sorted.bam --reference ecoli.unicycler.consensus.fasta --gff pb.basemods.gff --csv pb.basemods.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET
+
+motifMaker find -f ecoli.unicycler.consensus.fasta -g pb.basemods.gff -o pb.motifs.csv
+
+motifMaker reprocess -f ecoli.unicycler.consensus.fasta -g pb.basemods.gff -m pb.motifs.csv -o pb.motifs.gff
+```
+**PacBio Sequel II reads**
+```
+smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml pb.SQII.subreads.bam
+smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml ecoli.unicycler.consensus.fasta
+
+smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
+
+smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
+```
+
+**ONT reads**
+```
+tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
+
+tombo resquiggle fast5_dir ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5
+
+tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
+
+tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
+
+tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif GATC --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.GATC.pdf
+
+tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif CCWGG --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.CCWGG.pdf
+
+tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stats LIG.5mC.tombo.stats LIG.6mA.tombo.stats --motif-descriptions CCWGG:2:"CCWGG RAPID" GATC:2:"GATC RAPID" CCWGG:2:"CCWGG LIG"::GATC:2:"GATC LIG" --genome-fasta ecoli.unicycler.consensus.fasta
+```
+
+**Plot PacBio modification QV versus ONT dampened fraction**
+*PacBio*
+```
+grep 'id=GATC' cromwell_out/cromwell-executions/pb_basemods/cb4f28f5-fff9-426a-8010-a03646fb69de/call-reprocess_motifs/execution/motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.sqII.basemods.GATC.tsv
+```
+*ONT*
+```
+tombo detect_modifications alternative_model --alternate-bases 6mA --fast5-basedirs fast5_dir --statistics-file-basename ONT.6mA.alt --processes 16
+
+tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.6mA.alt.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
+
+wig2bed < ONT.6mA.alt.dampened_fraction_modified_reads.plus.wig > ONT.6mA.alt.dampened_fraction_modified_reads.plus.bed  
+awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.plus.bed > ONT.6mA.alt.dampened_fraction_modified_reads.plus.final.tsv  
+wig2bed < ONT.6mA.alt.dampened_fraction_modified_reads.minus.wig > ONT.6mA.alt.dampened_fraction_modified_reads.minus.bed  
+awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.minus.bed > ONT.6mA.alt.dampened_fraction_modified_reads.minus.final.tsv  
+```
+*Visualization*
+```
+scripts/Ecoli_Long_Read_Analysis.Rmd
+```
+
+### E. coli plasmid quantification <a name="ecoli.plasmid"></a>  
 **Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
 *Map long reads*
 ```
@@ -210,79 +266,32 @@ grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 d
 scripts/Ecoli_Long_Read_Analysis.Rmd
 ```
 
-### Ecoli DNA modification analysis <a name="ecoli.dna.mod"></a>  
 
-**PacBio RS II reads**
-```
-pbmm2 align ecoli.unicycler.consensus.fasta subreads.bam ecoli.PB.mapped_sorted.bam --sort -j 16 -J 8
-samtools index ecoli.PB.mapped_sorted.bam
-pbindex ecoli.PB.mapped_sorted.bam
-ipdSummary ecoli.PB.mapped_sorted.bam --reference ecoli.unicycler.consensus.fasta --gff pb.basemods.gff --csv pb.basemods.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET
-
-motifMaker find -f ecoli.unicycler.consensus.fasta -g pb.basemods.gff -o pb.motifs.csv
-
-motifMaker reprocess -f ecoli.unicycler.consensus.fasta -g pb.basemods.gff -m pb.motifs.csv -o pb.motifs.gff
-```
-**PacBio Sequel II reads**
-```
-smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml pb.SQII.subreads.bam
-smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml ecoli.unicycler.consensus.fasta
-
-smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
-
-smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
-```
-
-**ONT reads**
-```
-tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
-
-tombo resquiggle fast5_dir ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5
-
-tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
-
-tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
-
-tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif GATC --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.GATC.pdf
-
-tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif CCWGG --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.CCWGG.pdf
-
-tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stats LIG.5mC.tombo.stats LIG.6mA.tombo.stats --motif-descriptions CCWGG:2:"CCWGG RAPID" GATC:2:"GATC RAPID" CCWGG:2:"CCWGG LIG"::GATC:2:"GATC LIG" --genome-fasta ecoli.unicycler.consensus.fasta
-```
-
-### D.ananassae genome assembly using Canu <a name="dana.canu"></a>
+### D. ananassae genome assembly <a name="dana.canu"></a>
 **MinION**  
 ```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq  
 ```
 **PacBio**  
 ```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq  
 ```
 **Hybrid**  
 ```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq -pacbio-raw raw.pacbio.reads.fastq  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq -pacbio-raw pacbio.reads.fastq  
 ```
-**Genome polishing**  
+**Genome polishing (performed on PacBio Sequel II + ONT LIG hybrid assembly)**  
 ```
-pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
+Modify pilon_iter.sh for polishing with short reads/long reads/both
+scripts/pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
 ```
+### Dana.UMIGS genome assembly <a name="dana.umigs"></a>
 
 ### D. ananassae genome assessment <a name="dana.eval"></a>  
-assemblathon_stats.pl contigs.fasta -csv -graph -genome_size 240000000
+
 **D. ananassae QUAST-LG** 
 ```
-use python-3.5
-echo "/home/etvedte/scripts/quast-5.0.2/quast.py ../dana.hybrid.LIG+SQII.pilon.l_contigs.rn.fasta ../dana.hybrid.RAPID+SQII.pilon.l_contigs.fasta -r /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic_scaffolds.fna -o quast_test -t 8 --large -k --est-ref-size 240000000 --fragmented" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 8 -N quast.LG -cwd -V
-
-echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.raw_contigs.fasta -r /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic.redux.fasta --features gene:/local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic.gff -o quast_minion_features -t 24 --large -e --est-ref-size 240000000 --fragmented" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 24 -N quast.LG -cwd -V
-
-
-echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.raw_contigs.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.minion.LIG.raw_contigs.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.pb.sqII.raw_contigs.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.hybrid.RAPID+SQII.raw_contigs.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.hybrid.LIG+SQII.raw_contigs.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.hybrid.RS+SQII.raw_contigs.fasta /local/projects-t3/RDBKO/nonIGS_dana/Miller2018/Dana.pass.minimap2.racon.x3.pilon.x3.fasta /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic.redux.fasta -r /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic.redux.fasta --features gene:/local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic.gff -o quast_all_assemblies -t 24 --large -m 0 --fragmented --split-scaffolds" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 24 -N quast.LG -cwd -V
-
-
-echo "kat comp -n -t 16 -o minion.RAPID.v.illumina /local/projects-t3/RDBKO/sequencing/RANDD_LIG_Dana_20190405_merged_pass.fastq.gz /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp.reads -cwd -V
-
+quast.py ONT.RAPID.raw_contigs.fasta ONT.LIG.raw_contigs.fasta PB.SequelII.raw_contigs.fasta Hybrid.RAPID+SequelII.raw_contigs.fasta Hybrid.LIG+SequelII.raw_contigs.fasta Hybrid.RSII+SequelII.raw_contigs.fasta Hybrid.LIG+SequelII.polished.short_contigs.fasta Hybrid.LIG+SequelII.polished.long_contigs.fasta Hybrid.LIG+SequelII.polished_both_contigs.fasta Hybrid.LIG+SequelII.polished_hifi_contigs.fasta Dana.Miller2018.fasta Dana.caf1.fasta Dana.UMIGS_contigs.fasta -r Dana.UMIGS_contigs.fasta -o quast_output_dir -t 24 --large -m 0 --conserved-genes-finding --split-scaffolds
 ```
 
 non-chromosomal contigs
@@ -290,32 +299,21 @@ non-chromosomal contigs
 echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.minion.LIG.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.pb.sqII.raw_contigs.nonchr.fasta /local/projects-t3/LGT/Dananassae_2020/dana.quickmerge/flye+canu.FREEZE.custom.params/pilon.long.bases/dana.assembly.FREEZE.plusMITO.6.1.20.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/Miller2018/Dana.pass.minimap2.racon.x3.pilon.x3.rh.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic_scaffolds.nonchr.fna -o quast_all_nonchr -t 24 --large -m 0 --split-scaffolds" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 24 -N quast.LG -cwd -V
 ```
 
-**KAT**
-```
-use kat-2.4.0
-echo "kat comp -t 16 -o minion.RAPID.assembly /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_ILLUMINA_DATA/RANDD_20190322_K00134_IL100123454_MX29_L004_R1.fastq /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.pilon.l_contigs.fasta" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 16 -N kat.comp -cwd -V
-kat plot spectra-cn -x 150 -p pdf -o Miller2018_cHi_illumina-main.mx.spectra-cn.pdf Miller2018_cHi_illumina-main.mx
-
-**D. ananassae BUSCO**  
-```
-python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l metazoa_odb9 -m geno  
-```
-
 ### Alignment of contigs to D. ananassae polytene map <a name="dana.map"></a>  
 *Initial BLAST against polished contigs to determine contig orientation*  
 ```
-makeblastdb -in polished.contigs.fasta -out polished.contigs.fasta -dbtype nucl -parse_seqids  
-blastn -query mapping_loci.fasta -db polished.contigs.fasta -max_target_seqs 10 -max_hsps 10 -outfmt 6 > initial.blast.out  
+makeblastdb -in contigs.fasta -out contigs.fasta -dbtype nucl -parse_seqids  
+blastn -query dana.polytene.map.loci.fasta -db contigs.fasta -max_target_seqs 10 -max_hsps 10 -outfmt 6 > initial.blast.out  
 ```
-*After manual inspection, reverse complementation if necessary* 
+*Extract chromosome contigs, reverse complement if necessary* 
 ```
-samtools faidx polished.contigs.fasta fwd.contig.name >> polished.contigs.correct.fasta  
-samtools faidx -i polished.contigs.fasta rev.contig.name >> polished.contigs.correct.fasta  
+samtools faidx contigs.fasta fwd.contig.name >> chr.contigs.fasta  
+samtools faidx -i contigs.fasta rev.contig.name >> chr.contigs.fasta  
 ```
-*Second round of BLAST. Can limit target sequences if alignment lengths of BLAST matches are similar to queries. Also used custom output columns*  
+*Second round of BLAST using chromosome contigs and custom output columns*  
 ```
-makeblastdb -in polished.contigs.correct.fasta -out polished.contigs.correct.fasta -dbtype nucl -parse_seqids  
-blastn -query mapping_loci.fasta -db polished.contigs.correct.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out  
+makeblastdb -in chr.contigs.fasta -out chr.contigs.fasta -dbtype nucl -parse_seqids  
+blastn -query dana.polytene.map.loci.fasta -db chr.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out  
 ```
 
 **filter out chromosomes, redo QUAST stats
