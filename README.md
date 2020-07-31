@@ -15,53 +15,52 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 6. [E. coli assembly correctness](#ecoli.correct)
 7. [E. coli chimeric reads assessment](#ecoli.chimera)  
 8. [E. coli plasmid analysis](#ecoli.plasmid)  
-9. [D. ananassae genome assembly using Canu](#dana.canu)  
-10. [D. ananassae genome assessment](#dana.eval)  
-11. [Alignment of contigs to D. ananassae polytene map](#dana.map)
+9. [Ecoli DNA modification analysis](#ecoli.dna.mod)  
+10. [D. ananassae genome assembly using Canu](#dana.canu)  
+11. [D. ananassae genome assessment](#dana.eval)  
+12. [Alignment of contigs to D. ananassae polytene map](#dana.map)
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
-**MinION LIG**
+**Remove DNA Control Sequence from ONT LIG reads**
 ```
-zcat minion.LIG.raw.fastq.gz | NanoLyse | gzip > minion.LIG.filter.fastq.gz
-seqkit sample -s 13 -j 16 -p 0.17218 -o minion.LIGsample.fastq minion.LIG.filter.fastq.gz
+zcat ont.LIG.raw.fastq.gz | NanoLyse | gzip > ont.LIG.filter.fastq.gz
 ```
-**PacBio Sequel II**
-```
-seqkit sample -s 13 -j 16 -p 0.0212566 -o pbSequelII.sample.fastq pbSequelII.raw.fastq.gz
-```
+
 ### Determine read length distributions <a name="ecoli.read"></a>
-**MinION** 
+**ONT reads** 
 ```
-bbtools/readlength.sh in=raw.reads.fastq.gz out=raw.reads.hist.out bin=1000 max=1000000 qin=33 
+bbtools/readlength.sh in=ont.reads.fastq.gz out=ont.reads.hist.out bin=1000 max=1000000 qin=33 
 ```
-**PacBio**
+**PacBio reads**
 ```
-bbtools/readlength.sh in=raw.reads.fastq.gz out=raw.reads.hist.out bin=1000 max=1000000 
+bbtools/readlength.sh in=pb.reads.fastq.gz out=pb.reads.hist.out bin=1000 max=1000000 
 ```
 **Generate histograms**
 ```
-read_histograms.Rmd
+grep -v '#' reads.hist.out > reads.hist.final.out
+Run scripts/Ecoli_Long_Read_Analysis.Rmd found in GitHub repo
 ```
-
+**Subset ONT LIG and PacBio Sequel II reads**
+```
+seqkit sample -s 13 -j 16 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
+seqkit sample -s 13 -j 16 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
+```
 ### E. coli genome assembly using Canu <a name="ecoli.canu"></a>
-**MinION**  
+**ONT assembly**  
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw raw.nanopore.reads.fastq 
+canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq 
 ```
 **PacBio** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw raw.pacbio.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq
 ```
 **Polish, circularize, and rotate**  
 ```
-pilon_iter.sh canu/assembly.contigs.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq canu/assembly.trimmedReads.fasta  
+Modify pilon_iter.sh for polishing with short reads/long reads/both
+scripts/pilon_iter.sh assembly.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq canu/assembly.trimmedReads.fasta  
 circlator minimus2 pilon5.fasta circularise.fasta  
-circlator fixstart --genes_fa ecoli.dnaA.DNA.fasta circularise.fasta rotated.fasta  
-```
-**Rename FASTA**  
-```
-for f in *_contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' < $f > ${f%_c*}_contigs_rn.fasta; done
+circlator fixstart --genes_fa ecoli.dnaA.fasta circularise.fasta rotated.fasta  
 ```
 
 ### E. coli genome assembly using Unicycler <a name="ecoli.uni"></a>
@@ -72,10 +71,6 @@ unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads
 **Hybrid assembly**  
 ```
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  --short1 illumina.reads.R1.fastq --short2 illumina.reads.R2.fastq -o output.dir -t 32  
-```
-**Rename FASTA**  
-```
-for f in \*contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' < $f > ${f%\_c\*})\_contigs_rn.fasta; done
 ```
 
 ### E. coli BUSCO <a name="ecoli.busco"></a>  
@@ -95,18 +90,18 @@ velvetg /velveth/output/dir/
 ```
 **Identify trusted contigs, >5kb and 100% match between ABySS and velvet** 
 ```
-mummer -mum -b -s -n -l 5000 ecoli.abyss.contigs.fasta ecoli.velvet.contigs.fasta | grep -i -P "[acgt]{5000,}" | awk '{name += 1; print ">"name"\n"substr(toupper($0), 100, length($0)-200)}' > ecoli.abyss+velvet.trusted.contigs.fasta  
+mummer -mum -b -s -n -l 5000 ecoli.abyss.contigs.fasta ecoli.velvet.contigs.fasta | grep -i -P "[acgt]{5000,}" | awk '{name += 1; print ">"name"\n"substr(toupper($0), 100, length($0)-200)}' > ecoli.trusted.contigs.fasta  
 ```
 **Build BLAST database for long read assemblies**  
 ```
 mkdir db  
-mv \*\_contigs_rn.fasta db/  
+mv \*contigs.fasta db/  
 cd db  
-for f in \*fasta; do makeblastdb -dbtype nucl -parse_seqids -in $f ; done  
+for f in \*fasta; do makeblastdb -dbtype nucl -parse_seqids -in $f -out $f; done  
 ```
 **Retrieve the best BLAST hit for each trusted contig query**  
 ```
-for f in db/\*fasta; do blastn -db $f -query /local/projects-t3/RDBKO/ecoli.abyss/ecoli.abyss+velvet.5kb+.trusted.contigs.fasta -outfmt 6 | sort -nk1,1 -k12,12gr -k11,11g -k3,3gr | sort -u -nk1,1 > ${f%\_r\*}\_trusted.blast_hits; done  
+for f in db/\*fasta; do blastn -db $f -query /local/projects-t3/RDBKO/ecoli.abyss/ecoli.trusted.contigs.fasta -outfmt 6 | sort -nk1,1 -k12,12gr -k11,11g -k3,3gr | sort -u -nk1,1 > ${f%\_r\*}\_trusted.blast_hits; done  
 ```
 **Determine percentage correctness, aligned bases, mismatches, gap opens for long read assemblies**  
 ```
@@ -121,12 +116,12 @@ paste ecoli.correctness.names.txt ecoli.correctness.data.txt > ecoli.correctness
 
 ### E. coli chimeric reads assessment <a name="ecoli.chimera"></a>  
 **Map reads to Unicycler consensus using minimap2. Second round of mapping to cut-and-paste E.coli genome sequence**  
-*MinION*  
+*ONT reads*  
 ```
 minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq > mapped.paf  
 minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.cut.fasta minion.reads.fastq > mapped.cut.paf  
 ```
-*PacBio*  
+*PacBio reads*  
 ```
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq > mapped.paf  
 minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.cut.fasta pb.reads.fastq > mapped.cut.paf  
@@ -149,12 +144,12 @@ mv chimeras.txt genome.chimeras.cut.txt
 ```
 cat genome.chimeras.txt genome.cut.chimeras.txt | awk '{print $1}' - | sort -n | uniq -d > chimeras.candidates.txt  
 ```
-**Re-map, filter reads to include only chimeras, manual inspection**  
-*Map MinION*  
+**Re-map to produce BAM output, filter reads to include only chimeras, manual inspection**  
+*ONT reads*  
 ```
 minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq | samtools sort -o sorted.bam  
 ```
-*Map PacBio*  
+*PacBio reads*  
 ```
 minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o sorted.bam  
 ```
@@ -177,8 +172,8 @@ samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 ecoli.genome -c
 **Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
 *Map long reads*
 ```
-minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq | samtools sort -o sorted.bam 
-minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o sorted.bam  
+minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta ont.reads.fastq | samtools sort -o ont.sorted.bam 
+minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o pb.sorted.bam  
 ```
 *Filter long read BAM files to retain primary reads*  
 ```
@@ -211,7 +206,7 @@ grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 d
 grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  
 ```
 
-### Ecoli DNA mod
+### Ecoli DNA modification analysis <a name="ecoli.dna.mod"></a>  
 
 **PacBio**
 ```
@@ -337,6 +332,11 @@ blastn -query mapping_loci.fasta -db polished.contigs.correct.fasta -max_target_
 **filter out chromosomes, redo QUAST stats
 /usr/local/packages/bbtools/filterbyname.sh in=dana.minion.RAPID.raw_contigs.fasta out=dana.minion.RAPID.raw_contigs.nonchr.fasta names=dana.minion.RAPID.raw_contigs.chr.list include=f
 
+
+**Rename FASTA**  
+```
+for f in *_contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' < $f > ${f%_c*}_contigs_rn.fasta; done
+```
 
 ## System requirements
 
