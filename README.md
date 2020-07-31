@@ -13,11 +13,11 @@ The repository contains Supplementary Data for the manuscript, including Tables,
 4. [Evaluation of E. coli genome assemblies and chimeras](#ecoli.eval)
 5. [Ecoli DNA modification analysis](#ecoli.dna.mod)  
 6. [E. coli plasmid quantification](#ecoli.plasmid)  
-
-10. [D. ananassae genome assembly](#dana.canu)
-11. [Dana.UMIGS genome assembly] (#dana.umigs)
-12. [D. ananassae genome assessment](#dana.eval)  
-13. [Alignment of contigs to D. ananassae polytene map](#dana.map)
+7. [D. ananassae genome assembly](#dana.canu)
+8. [Dana.UMIGS genome assembly](#dana.umigs)
+9. [Anchoring Dana.UMIGS contigs](#dana.anchor)
+10. [Evaluation of D. ananassae genome assemblies](#dana.eval)  
+11. [Detection of DNA modification in D. ananassae](#dana.dna.mod)
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
@@ -268,15 +268,15 @@ scripts/Ecoli_Long_Read_Analysis.Rmd
 
 
 ### D. ananassae genome assembly <a name="dana.canu"></a>
-**MinION**  
+**Canu ONT**  
 ```
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq  
 ```
-**PacBio**  
+**Canu PacBio**  
 ```
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq  
 ```
-**Hybrid**  
+**Canu hybrid**  
 ```
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq -pacbio-raw pacbio.reads.fastq  
 ```
@@ -286,6 +286,47 @@ Modify pilon_iter.sh for polishing with short reads/long reads/both
 scripts/pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
 ```
 ### Dana.UMIGS genome assembly <a name="dana.umigs"></a>
+**Canu hybrid**
+```
+canu -p output.prefix -d output.dir genomeSize=240m corOutCoverage=80 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.sequelII.reads.fastq.gz -nanopore-raw ont.LIG.reads.fastq.gz
+```
+**Polish with Arrow (2X)**  
+```
+pbmm2 align canu.assembly.contigs.fasta pacbio.sequelII.subreads.bam canu.assembly.mapped.pb.sqII_sorted.bam --sort -j 16 -J 8
+
+```
+**polish with arrow using Sequel II data**
+```
+echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/pbmm2 align Circularized_assembly_1_dana.illumina.mito.NOVOPlasty.fasta /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA/RANDD_20190301_S64018_PL100122512-1_C01.subreads.bam Circularized_assembly_1_dana.illumina.mito.NOVOPlasty.sqII.arrow1_sorted.bam --sort -j 16 -J 8" | qsub -P jdhotopp-lab -l mem_free=50G -N pbmm2.align -q threaded.q -pe thread 16 -cwd -V
+```
+
+**Flye Sequel II**
+```
+flye -g 240m -t 24 -o flye_assembly_dir --asm-coverage 60 --pacbio-raw pacbio.sequelII.reads.fastq.gz
+```
+
+**Map PacBio HiFi data**  
+
+
+**polish with FreeBayes**
+
+**purge haplotigs from assembly**
+```
+echo "minimap2 -xmap-pb /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.fasta /local/projects-t3/RDBKO/sequencing/Dana.Hawaii.pbSequelII.raw.fastq.gz | gzip -c - > dana.hybrid.80X.arrow.rd2.mappedsqII.paf.gz" | qsub -P jdhotopp-lab -l mem_free=10G -N minimap2 -cwd
+
+/local/projects-t3/RDBKO/scripts/purge_dups/bin/split_fa /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.fasta > /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.split
+
+/home/etvedte/scripts/purge_dups/bin/pbcstat dana.hybrid.80X.contigs.arrow.polished.mappedhifi.paf.gz
+/home/etvedte/scripts/purge_dups/bin/calcuts PB.stat > cutoffs 2> calcuts.log
+/home/etvedte/scripts/purge_dups/scripts/hist_plot.py PB.stat hist.out.pdf
+```
+
+**Convert bases to upper case**
+*By default arrow outputs regions with no consensus as lower case, i.e. 'acgt'. In order to properly annotate repetitive regions as lower case, all bases must be converted to upper case. Note that this could have been accomplished in arrow using the parameter --noEvidenceConsensusCall reference* 
+```
+awk 'BEGIN{FS=" "}{if(!/>/){print toupper($0)}else{print $1}}' dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fasta > dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fmt.fasta
+```
+
 
 ### D. ananassae genome assessment <a name="dana.eval"></a>  
 
