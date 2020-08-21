@@ -206,7 +206,7 @@ tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stat
 **Plot PacBio modification QV versus ONT dampened fraction**
 *PacBio*
 ```
-grep 'id=GATC' cromwell_out/cromwell-executions/pb_basemods/cb4f28f5-fff9-426a-8010-a03646fb69de/call-reprocess_motifs/execution/motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.sqII.basemods.GATC.tsv
+grep 'm6A' cromwell_out/cromwell-executions/pb_basemods/cb4f28f5-fff9-426a-8010-a03646fb69de/call-reprocess_motifs/execution/motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.sqII.basemods.m6A.tsv
 ```
 *ONT*
 ```
