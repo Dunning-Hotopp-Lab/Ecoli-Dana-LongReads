@@ -1,4 +1,4 @@
-# Comparison of long read sequencing technologies in resolving bacteria and fly genomes
+# Comparison of long read sequencing technologies in interrogating bacteria and fly genomes
 
 Eric S. Tvedte
 
