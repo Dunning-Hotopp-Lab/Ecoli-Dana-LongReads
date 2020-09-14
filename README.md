@@ -2,9 +2,7 @@
 
 Eric S. Tvedte
 
-2019-11-13
-
-The repository contains Supplementary Data for the manuscript, including Tables, Figures, and Files.
+2020-09-14
 
 ## Table of Contents
 1. [Prepare sequencing files for assembly](#ecoli.prep)
