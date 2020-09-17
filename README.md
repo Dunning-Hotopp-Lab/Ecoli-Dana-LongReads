@@ -42,20 +42,31 @@ grep -v '#' ont.reads.hist.out > ont.reads.hist.final.out
 bbtools/readlength.sh in=pb.reads.fastq.gz out=pb.reads.hist.out bin=1000 max=1000000
 grep -v '#' pb.reads.hist.out > pb.reads.hist.final.out
 ```
-**Generate histograms**
+**Generate histograms in R**
+Input: binned read count frequencies from bbtools, set as in.path
+Output: read length histograms
 ```r
 library(ggplot2)
-#library(tidyverse)
 library(gtable)
 library(grid)
 library(scales)
 
-setwd("X:/RDBKO/sequencing/")
 all.read.data = data.frame()
 replicate.data = data.frame()
 
-#minion RAPID run #1
-in.path = "X:/RDBKO/sequencing/RAPID_Ecoli_Final_pass_20190723.1kb.hist.final.out"
+#PacBio Sequel II
+in.path = "pb.reads.hist.final.out"
+data <- read.table(in.path, header = F, sep = '\t')
+colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
+data[,"rlib"] <- "PB_SEQUELII"
+data$length[1] <- 1
+data[,"length.mean"] <- mean(data$length)
+data[,"length.max"] <- max(data$length)
+
+all.read.data <- rbind(all.read.data,data)
+
+#ONT RAPID
+in.path = "ont.reads.hist.final.out"
 data <- read.table(in.path, header = F, sep = '\t')
 colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
 data[,"rlib"] <- "ONT_RAPID"
@@ -63,19 +74,109 @@ data$length[1] <- 1
 data[,"length.mean"] <- mean(data$length)
 data[,"length.max"] <- max(data$length)
 
-
 all.read.data <- rbind(all.read.data,data)
 
-#minion lig
-in.path = "X:/RDBKO/sequencing/LIG_Ecoli_Final_pass_20190729_filtlambda.1kb.hist.final.out"
-data <- read.table(in.path, header = F, sep = '\t')
-colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
-data[,"rlib"] <- "ONT_LIG"
-data$length[1] <- 1
-data[,"length.mean"] <- mean(data$length)
-data[,"length.max"] <- max(data$length)
+#convert to numeric
+all.read.data$cum_pct_bases <- as.character(all.read.data$cum_pct_bases)
+all.read.data$cum_pct_bases <- gsub("%", "", all.read.data$cum_pct_bases)
+all.read.data$cum_pct_bases <- as.numeric(all.read.data$cum_pct_bases)
+gsub("%", "", as.character(factor(all.read.data$cum_pct_bases)))
 
-all.read.data <- rbind(all.read.data,data)
+#convert to numeric
+all.read.data$pct_bases <- as.character(all.read.data$pct_bases)
+all.read.data$pct_bases <- gsub("%", "", all.read.data$pct_bases)
+all.read.data$pct_bases <- as.numeric(all.read.data$pct_bases)
+gsub("%", "", as.character(factor(all.read.data$pct_bases)))
+
+#convert to numeric
+all.read.data$cum_pct_reads <- as.character(all.read.data$cum_pct_reads)
+all.read.data$cum_pct_reads <- gsub("%", "", all.read.data$cum_pct_reads)
+all.read.data$cum_pct_reads <- as.numeric(all.read.data$cum_pct_reads)
+gsub("%", "", as.character(factor(all.read.data$cum_pct_reads)))
+
+#convert to numeric
+all.read.data$pct_reads <- as.character(all.read.data$pct_reads)
+all.read.data$pct_reads <- gsub("%", "", all.read.data$pct_reads)
+all.read.data$pct_reads <- as.numeric(all.read.data$pct_reads)
+gsub("%", "", as.character(factor(all.read.data$pct_reads)))
+
+#add small numbers so log transformation can be used
+all.read.data$cum_pct_bases <- (100 - all.read.data$cum_pct_bases) + 0.001
+all.read.data$cum_pct_reads <- 100 - all.read.data$cum_pct_reads
+
+top_theme = theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "none")
+
+p1 <- ggplot(all.read.data, aes(x=all.read.data$length, y=reads, colour = rlib)) + 
+    geom_line() +
+    xlab("read length (bp)") +
+    ylab("read count") +
+    scale_x_continuous(trans = "log10", limits = c(1000,1000000)) +
+    #scale_x_continuous(limits = c(0,250000)) +
+    scale_y_continuous(label = comma, trans = "log10", limits = c(1,1000000)) +
+    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
+    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
+    theme_bw() +  
+    top_theme
+
+p2 <- ggplot(all.read.data, aes(x=all.read.data$length, y=pct_reads, colour = rlib)) + 
+    geom_line() +
+    xlab("read length (bp)") +
+    ylab("read count (% of total)") +
+    scale_x_continuous(trans = "log10", limits = c(1000,1000000)) +
+    #scale_x_continuous(limits = c(0,250000)) +
+    scale_y_continuous(limits = c(0,20)) +
+    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
+    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
+    theme_bw() +  
+    top_theme
+
+p3 <- ggplot(all.read.data, aes(x=length, y=bases, colour = rlib)) + 
+    geom_line() +
+    xlab("read length (bp)") +
+    ylab("bases sequenced") +
+    scale_x_continuous(label = comma, trans = "log10", limits = c(1000,1000000)) +
+    #scale_x_continuous(limits = c(0,250000)) +
+    theme(axis.ticks = element_blank(), axis.text.y = element_blank()) + 
+    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
+    #scale_color_brewer(palette = "Dark2") +
+    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
+    theme_bw() + 
+    theme(axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "bottom")
+
+p4 <- ggplot(all.read.data, aes(x=length, y=pct_bases, colour = rlib)) + 
+    geom_line() +
+    xlab("read length (bp)") +
+    ylab("bases sequenced (% of total)") +
+    scale_x_continuous(label = comma, trans = "log10", limits = c(1000,1000000)) +
+    #scale_x_continuous(limits = c(0,250000)) +
+    scale_y_continuous(limits = c(0,20)) +
+    theme(axis.ticks = element_blank(), axis.text.y = element_blank()) + 
+    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
+    #scale_color_brewer(palette = "Dark2") +
+    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
+    theme_bw() + 
+    theme(axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "bottom")
+
+#optional pdf output
+pdf("X:/RDBKO/raw.read.composition/Ecoli.readcomp.full.pdf", width = 6.5, height = 5)
+   g1 <- ggplotGrob(p1)
+   g2 <- ggplotGrob(p2)
+   g3 <- ggplotGrob(p3)
+   g4 <- ggplotGrob(p4)
+  
+   g5 <- rbind(g1, g3, size = "first")
+   g6 <- rbind(g2, g4, size = "first")
+  
+   g5$widths <- unit.pmax(g1$widths, g4$widths)
+   g6$widths <- unit.pmax(g2$widths, g5$widths)
+   
+   g <- cbind(g5, g6, size = "first")
+   grid.newpage()
+   grid.draw(g)
+
+#optional pdf close 
+dev.off()
+
 ```
 
 ### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
