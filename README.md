@@ -6,7 +6,7 @@ Eric S. Tvedte
 
 ## Table of Contents
 1. [Prepare sequencing files for assembly](#ecoli.prep)
-2. [Determine read length distributions](#ecoli.read)
+2. [Read length distributions](#ecoli.read)
 3. [E. coli genome assembly](#ecoli.asm)
 4. [Evaluation of E. coli genome assemblies and chimeras](#ecoli.eval)
 5. [Ecoli DNA modification analysis](#ecoli.dna.mod)  
@@ -19,31 +19,72 @@ Eric S. Tvedte
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
+**Basecalling R9 ONT reads**
+```
+guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r9.4.1_450bps_fast.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 --num_callers 8 --cpu_threads_per_caller 4
+```
+**Basecalling R10 ONT reads**
+```
+guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.3_450bps_fast.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 --num_callers 8 --cpu_threads_per_caller 4
+```
 **Remove DNA Control Sequence from ONT LIG reads**
 ```
 zcat ont.LIG.raw.fastq.gz | NanoLyse | gzip > ont.LIG.filter.fastq.gz
 ```
-
-### Determine read length distributions <a name="ecoli.read"></a>
+### Read length distributions <a name="ecoli.read"></a>
 **ONT reads** 
 ```
-bbtools/readlength.sh in=ont.reads.fastq.gz out=ont.reads.hist.out bin=1000 max=1000000 qin=33 
+bbtools/readlength.sh in=ont.reads.fastq.gz out=ont.reads.hist.out bin=1000 max=1000000 qin=33
+grep -v '#' ont.reads.hist.out > ont.reads.hist.final.out
 ```
 **PacBio reads**
 ```
-bbtools/readlength.sh in=pb.reads.fastq.gz out=pb.reads.hist.out bin=1000 max=1000000 
+bbtools/readlength.sh in=pb.reads.fastq.gz out=pb.reads.hist.out bin=1000 max=1000000
+grep -v '#' pb.reads.hist.out > pb.reads.hist.final.out
 ```
 **Generate histograms**
+```r
+library(ggplot2)
+#library(tidyverse)
+library(gtable)
+library(grid)
+library(scales)
+
+setwd("X:/RDBKO/sequencing/")
+all.read.data = data.frame()
+replicate.data = data.frame()
+
+#minion RAPID run #1
+in.path = "X:/RDBKO/sequencing/RAPID_Ecoli_Final_pass_20190723.1kb.hist.final.out"
+data <- read.table(in.path, header = F, sep = '\t')
+colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
+data[,"rlib"] <- "ONT_RAPID"
+data$length[1] <- 1
+data[,"length.mean"] <- mean(data$length)
+data[,"length.max"] <- max(data$length)
+
+
+all.read.data <- rbind(all.read.data,data)
+
+#minion lig
+in.path = "X:/RDBKO/sequencing/LIG_Ecoli_Final_pass_20190729_filtlambda.1kb.hist.final.out"
+data <- read.table(in.path, header = F, sep = '\t')
+colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
+data[,"rlib"] <- "ONT_LIG"
+data$length[1] <- 1
+data[,"length.mean"] <- mean(data$length)
+data[,"length.max"] <- max(data$length)
+
+all.read.data <- rbind(all.read.data,data)
 ```
-grep -v '#' reads.hist.out > reads.hist.final.out
-scripts/Ecoli_Long_Read_Analysis.Rmd
-```
+
+### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
 **Subset ONT LIG and PacBio Sequel II reads**
 ```
 seqkit sample -s 13 -j 16 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
 seqkit sample -s 13 -j 16 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
 ```
-### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
+
 **Canu ONT assembly**  
 ```
 canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq 
