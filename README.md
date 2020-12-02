@@ -31,18 +31,25 @@ guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.
 ```
 zcat ont.LIG.raw.fastq.gz | NanoLyse | gzip > ont.LIG.filter.fastq.gz
 ```
+
 ### Read length distributions <a name="ecoli.read"></a>
-**ONT reads** 
+**Determine read length distributions** 
 ```
-bbtools/readlength.sh in=ont.reads.fastq.gz out=ont.reads.hist.out bin=1000 max=1000000 qin=33
-grep -v '#' ont.reads.hist.out > ont.reads.hist.final.out
+bbtools/readlength.sh in=reads.fastq.gz out=reads.hist.out bin=1000 max=1000000 qin=33
+grep -v '#' reads.hist.out > reads.hist.final.out
 ```
-**PacBio reads**
+**Subsample read sets to 40X**
 ```
-bbtools/readlength.sh in=pb.reads.fastq.gz out=pb.reads.hist.out bin=1000 max=1000000
-grep -v '#' pb.reads.hist.out > pb.reads.hist.final.out
+seqkit sample -j 8 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
+seqkit sample -j 8 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
+
+seqkit sample -j 8 -p 0.1470 -o Ecoli.PB.RSII.40X.fastq Ecoli.PB.RSII.fastq.gz
+seqkit sample -j 8 -p 0.0031 -o Ecoli.PB.SQII.40X.fastq Ecoli.PB.SQII.fastq.gz
+seqkit sample -j 8 -p 0.0086 -o Ecoli.PB.HiFi.40X.fastq Ecoli.PB.HiFi.fastq.gz
 ```
-**Generate histograms in R**
+
+**Generate histograms in R**  
+Perform analysis for all reads and subsampled reads  
 Input: binned read count frequencies from bbtools, set as in.path
 Output: read length histograms
 ```r
@@ -179,12 +186,8 @@ dev.off()
 
 ```
 
+
 ### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
-**Subset ONT LIG and PacBio Sequel II reads**
-```
-seqkit sample -s 13 -j 16 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
-seqkit sample -s 13 -j 16 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
-```
 
 **Canu ONT assembly**  
 ```
