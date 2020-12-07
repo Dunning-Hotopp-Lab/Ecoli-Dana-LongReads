@@ -21,15 +21,15 @@ Eric S. Tvedte
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
 **Basecalling R9 ONT reads**
 ```
-guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r9.4.1_450bps_fast.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 --num_callers 8 --cpu_threads_per_caller 4
+guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r9.4.1_450bps_hac.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 -x "cuda:5 cuda:6 cuda:7" > guppy.4.2.2.log
 ```
 **Basecalling R10 ONT reads**
 ```
-guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.3_450bps_fast.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 --num_callers 8 --cpu_threads_per_caller 4
+guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.3_450bps_hac.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 -x "cuda:5 cuda:6 cuda:7" > guppy.4.2.2.log
 ```
 **Remove DNA Control Sequence from ONT LIG reads**
 ```
-zcat ont.LIG.raw.fastq.gz | NanoLyse | gzip > ont.LIG.filter.fastq.gz
+cat ONT.LIG.fastq | NanoLyse --reference DCS.fasta | gzip > ONT.LIG.filterDCS.fastq.gz 
 ```
 
 ### Read length distributions <a name="ecoli.read"></a>
