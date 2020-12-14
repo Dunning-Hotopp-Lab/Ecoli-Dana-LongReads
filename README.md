@@ -204,6 +204,11 @@ scripts/pilon_iter.sh assembly.fasta illumina.reads.R1.fastq illumina.reads.R2.f
 circlator minimus2 pilon5.fasta circularise.fasta  
 circlator fixstart --genes_fa ecoli.dnaA.fasta circularise.fasta rotated.fasta  
 ```
+
+/home/etvedte/scripts/Flye/bin/flye -t 24 --plasmids -o PB.CLR.100X --pacbio-raw /local/projects-t3/RDBKO/sequencing/Ecoli.subsample.60X/Ecoli.PB.CLR.100X.fastq.gz"
+
+/home/etvedte/scripts/Flye/bin/flye -t 24 --plasmids -o PB.HiFi --pacbio-hifi /local/projects-t3/RDBKO/sequencing/Ecoli.subsample.60X/Ecoli.PB.HiFi.100X.fastq.gz
+
 **Unicycler long read assembly**  
 ```
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  -o output.dir -t 32  
