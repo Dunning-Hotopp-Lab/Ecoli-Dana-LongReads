@@ -216,7 +216,7 @@ unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads
 ### Evaluation of E. coli genome assemblies and chimeras <a name="ecoli.eval"></a>   
 **BUSCO** 
 ```
-python run_BUSCO.py -f -c 8 -t /local/scratch/etvedte/tmp -i assembly.fasta -o busco_output_dir -l bacteria_odb9 -m geno  
+busco --config config.ini -i contigs.fasta -c 8 -o output_dir -l bacteria -m geno  
 ```
 **De novo assembly of Illumina reads using AbySS**  
 ```
