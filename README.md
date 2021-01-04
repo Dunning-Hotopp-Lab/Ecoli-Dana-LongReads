@@ -38,14 +38,12 @@ cat ONT.LIG.fastq | NanoLyse --reference DCS.fasta | gzip > ONT.LIG.filterDCS.fa
 bbtools/readlength.sh in=reads.fastq.gz out=reads.hist.out bin=1000 max=1000000 qin=33
 grep -v '#' reads.hist.out > reads.hist.final.out
 ```
-**Subsample read sets to 40X**
+**Subsample read sets to 100X**
 ```
-seqkit sample -j 8 -p 0.17218 -o ont.LIG.sample.fastq ont.LIG.filter.fastq.gz
-seqkit sample -j 8 -p 0.0212566 -o pb.SQII.sample.fastq pbSQII.raw.fastq.gz
-
-seqkit sample -j 8 -p 0.1470 -o Ecoli.PB.RSII.40X.fastq Ecoli.PB.RSII.fastq.gz
-seqkit sample -j 8 -p 0.0031 -o Ecoli.PB.SQII.40X.fastq Ecoli.PB.SQII.fastq.gz
-seqkit sample -j 8 -p 0.0086 -o Ecoli.PB.HiFi.40X.fastq Ecoli.PB.HiFi.fastq.gz
+seqkit sample -j 8 -p 0.0339 -o ONT.LIG.100X.fastq ONT.LIG.filterDCS.fastq.gz
+seqkit sample -j 8 -p 0.3677 -o Ecoli.PB.RSII.100X.fastq Ecoli.PB.RSII.fastq.gz
+seqkit sample -j 8 -p 0.0078 -o Ecoli.PB.CLR.100X.fastq Ecoli.PB.CLR.fastq.gz
+seqkit sample -j 8 -p 0.0216 -o Ecoli.PB.HiFi.100X.fastq Ecoli.PB.HiFi.fastq.gz
 ```
 
 **Generate histograms in R**  
@@ -186,79 +184,56 @@ dev.off()
 
 ```
 
-
-### E. coli genome assembly using Canu <a name="ecoli.asm"></a>
+### E. coli genome assembly <a name="ecoli.asm"></a>
 
 **Canu ONT assembly**  
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq 
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq 
 ```
-**Canu PacBio assembly** 
+**Canu PacBio RSII/CLR assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
 ```
+**HiCanu PacBio HiFi assembly** 
+```
+canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
+```
+
 **Polish, circularize, and rotate**  
 ```
-Modify pilon_iter.sh for polishing with short reads/long reads/both
-scripts/pilon_iter.sh assembly.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq canu/assembly.trimmedReads.fasta  
-circlator minimus2 pilon5.fasta circularise.fasta  
+bwa index genome.fasta
+bwa mem -t 16 genome.fasta fwd.R1.fastq rev.R2.fastq | samtools view -@ 16 -bS - |samtools sort -@ 16 -o ShortRead.bam -
+pilon-1.22.jar --genome genome.fasta --frags ShortRead.bam --changes --threads 16 --minmq 10 --fix bases --output pilon       
+circlator minimus2 pilon.fasta circularise.fasta  
 circlator fixstart --genes_fa ecoli.dnaA.fasta circularise.fasta rotated.fasta  
 ```
-
-/home/etvedte/scripts/Flye/bin/flye -t 24 --plasmids -o PB.CLR.100X --pacbio-raw /local/projects-t3/RDBKO/sequencing/Ecoli.subsample.60X/Ecoli.PB.CLR.100X.fastq.gz"
-
-/home/etvedte/scripts/Flye/bin/flye -t 24 --plasmids -o PB.HiFi --pacbio-hifi /local/projects-t3/RDBKO/sequencing/Ecoli.subsample.60X/Ecoli.PB.HiFi.100X.fastq.gz
-
-**Unicycler long read assembly**  
+**Flye ONT assembly**
 ```
-unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  -o output.dir -t 32  
+flye -t 24 --plasmids -o output.dir --nano-raw ont.reads.fastq
+```
+**Flye PacBio RSII/CLR assembly**
+```
+flye -t 24 --plasmids -o output.dir --pacbio-raw pacbio.reads.fastq
+```
+**Flye PacBio HiFi assembly**
+```
+flye -t 24 --plasmids -o output.dir --pacbio-hifi pacbio.hifi.reads.fastq
 ```
 **Unicycler hybrid assembly**  
 ```
-unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq  --short1 illumina.reads.R1.fastq --short2 illumina.reads.R2.fastq -o output.dir -t 32  
+unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq --short1 fwd.R1.fastq --short2 rev.R2.fastq -o output.dir -t 32  
 ```
 
-### Evaluation of E. coli genome assemblies and chimeras <a name="ecoli.eval"></a>   
-**BUSCO** 
+### E. coli genome assembly quality <a name="ecoli.eval"></a>   
+**BUSCO: conserved genes** 
 ```
 busco --config config.ini -i contigs.fasta -c 8 -o output_dir -l bacteria -m geno  
 ```
-**De novo assembly of Illumina reads using AbySS**  
+**QUAST: consensus identity, missassemblies**
 ```
-abyss-pe -j 16 name=ecoli_illumina_abyss k=116 in='illumina.reads.R1.fastq illumina.reads.R2.fastq'  
+quast.py -m 0 -t 8 contigs.1.fasta contigs.2.fasta contigs.3.fasta -o output_dir -r Ecoli.UMIGS.fasta
 ```
-**De novo assembly of Illumina reads using velvet**  
-```
-velveth /velveth/output/dir/ 115 -short -fastq illumina.reads.R1.fastq  
-velvetg /velveth/output/dir/  
-```
-**Identify trusted contigs, >5kb and 100% match between ABySS and velvet** 
-```
-mummer -mum -b -s -n -l 5000 ecoli.abyss.contigs.fasta ecoli.velvet.contigs.fasta | grep -i -P "[acgt]{5000,}" | awk '{name += 1; print ">"name"\n"substr(toupper($0), 100, length($0)-200)}' > ecoli.trusted.contigs.fasta  
-```
-**Build BLAST database for long read assemblies**  
-```
-mkdir db  
-mv \*contigs.fasta db/  
-cd db  
-for f in \*fasta; do makeblastdb -dbtype nucl -parse_seqids -in $f -out $f; done  
-```
-**Retrieve the best BLAST hit for each trusted contig query**  
-```
-for f in db/\*fasta; do blastn -db $f -query /local/projects-t3/RDBKO/ecoli.abyss/ecoli.trusted.contigs.fasta -outfmt 6 | sort -nk1,1 -k12,12gr -k11,11g -k3,3gr | sort -u -nk1,1 > ${f%\_r\*}\_trusted.blast_hits; done  
-```
-**Determine percentage correctness, aligned bases, mismatches, gap opens for long read assemblies**  
-```
-for f in \*\_trusted_blast_hits; do python3 get_error_rate.py $f > ${f%\_t\*}\_err_data; done  
-```
-**Generate summary file**  
-```
-for f in \*blast\_hits; do echo ${f%\_t\*} >> ecoli.correctness.names.txt  
-for f in \*err_data; do cat $f >> ecoli.correctness.data.txt; done 
-paste ecoli.correctness.names.txt ecoli.correctness.data.txt > ecoli.correctness.summary.txt  
-```
-
-**E. coli chimeric reads assessment**  
+**Alvis: chimeric reads**  
 *ONT reads*  
 ```
 minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq > mapped.paf  
@@ -424,6 +399,10 @@ canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe
 ```
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq  
 ```
+
+canu -p PB.HiFi -d /local/projects-t3/RDBKO/dana.canu/40X/PB.HiFi corOutCoverage=60 genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz
+
+
 **Canu hybrid**  
 ```
 canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq -pacbio-raw pacbio.reads.fastq  
@@ -456,7 +435,6 @@ flye -g 240m -t 24 -o flye_assembly_dir --asm-coverage 60 --pacbio-raw pacbio.se
 **Map PacBio HiFi data**  
 
 
-**polish with FreeBayes**
 
 **purge haplotigs from assembly**
 ```
