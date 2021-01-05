@@ -16,6 +16,7 @@ Eric S. Tvedte
 9. [Anchoring Dana.UMIGS contigs](#dana.anchor)
 10. [Evaluation of D. ananassae genome assemblies](#dana.eval)  
 11. [Detection of DNA modification in D. ananassae](#dana.dna.mod)
+12. [R scripts for data visualization](#data.vis)
 
 
 ### Prepare sequencing files for assembly <a name="ecoli.prep"></a>
@@ -234,56 +235,71 @@ busco --config config.ini -i contigs.fasta -c 8 -o output_dir -l bacteria -m gen
 quast.py -m 0 -t 8 contigs.1.fasta contigs.2.fasta contigs.3.fasta -o output_dir -r Ecoli.UMIGS.fasta
 ```
 **Alvis: chimeric reads**  
-*ONT reads*  
+*Map ONT reads*  
 ```
-minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq > mapped.paf  
-minimap2 -x map-ont -t 8 ecoli.unicycler.consensus.cut.fasta minion.reads.fastq > mapped.cut.paf  
+minimap2 -x map-ont -t 8 Ecoli.UMIGS.fasta ont.reads.fastq > mapped.paf  
+minimap2 -x map-ont -t 8 Ecoli.UMIGS.cut.fasta ont.reads.fastq > mapped.cut.paf  
 ```
-*PacBio reads*  
+*Map PacBio reads*  
 ```
-minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq > mapped.paf  
-minimap2 -x map-pb -t 8 ecoli.unicycler.consensus.cut.fasta pb.reads.fastq > mapped.cut.paf  
+minimap2 -x map-pb -t 8 Ecoli.UMIGS.fasta pb.reads.fastq > mapped.paf  
+minimap2 -x map-pb -t 8 Ecoli.UMIGS.cut.fasta pb.reads.fastq > mapped.cut.paf  
 ```
-**Filter to retain reads mapped to E. coli genome**  
-*FASTA header is ecoli.genome and ecoli.genome.cut, respectively*  
+*Filter to retain reads mapped to E. coli genome*  
 ```
 grep ecoli.genome mapped.paf > genome.paf  
 grep ecoli.genome.cut mapped.cut.paf > genome.cut.paf  
 ```
-**Predict chimeras using Alvis**  
+*Predict chimeras using Alvis*  
 ```
 alvis/dist/Alvis.jar -type contigAlignment -inputfmt paf -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in genome.paf -outdir /path/to/outdir/ -out out.prefix  
 mv chimeras.txt genome.chimeras.txt  
 alvis/dist/Alvis.jar -type contigAlignment -inputfmt paf -outputfmt svg -chimeras -printChimeras -minChimeraCoveragePC 90 -minChimeraAlignmentPC 10 -in genome.cut.paf -outdir /path/to/outdir/ -out out.prefix  
 mv chimeras.txt genome.chimeras.cut.txt  
 ```
-**Determine estimate for percentage chimeras**
-*Identify reads assigned as chimeras in both original and cut E.coli genome*  
+*Identify reads assigned as chimeras in both original and cut-and-paste E.coli genome*  
 ```
 cat genome.chimeras.txt genome.cut.chimeras.txt | awk '{print $1}' - | sort -n | uniq -d > chimeras.candidates.txt  
 ```
-**Re-map to produce BAM output, filter reads to include only chimeras, manual inspection**  
+*Re-map to produce BAM output, filter reads to include only chimeras, manual inspection*  
 *ONT reads*  
 ```
-minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta minion.reads.fastq | samtools sort -o sorted.bam  
-```
-*PacBio reads*  
-```
-minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o sorted.bam  
-```
-*Filter reads*  
-```
+minimap2 -ax map-ont -t 8 Ecoli.UMIGS.fasta ont.reads.fastq | samtools sort -o sorted.bam
+minimap2 -ax map-pb -t 8 Ecoli.UMIGS.fasta pb.reads.fastq | samtools sort -o sorted.bam 
 java -Xmx10g -jar picard-tools-2.5.0/picard.jar FilterSamReads I=sorted.bam O=chimeras.bam READ_LIST_FILE=chimeras_candidates.txt FILTER=includeReadList
 samtools index chimeras.bam
 ```
-**Determine estimate for percentage chimeras**  
-*Total number of chimeric reads*
+*Determine estimate for percentage chimeras*  
 ```
-wc -l chimeras.candidates.txt  
+wc -l chimeras.candidates.txt #total chimeras mapped to E.coli genome
+samtools view sorted.bam -F 4 -F 256 -F 2048 ecoli.genome -c  #total primary reads mapped to E.coli genome
 ```
-*Total primary reads mapped to genome*  
+### E. coli plasmid quantification <a name="ecoli.plasmid"></a>  
+**Minimap2: map long reads to Ecoli.UMIGS**  
 ```
-samtools view sorted.bam -F 4 -F 256 -F 1024 -F 2048 ecoli.genome -c  
+minimap2 -ax map-ont -t 8 Ecoli.UMIGS.fasta ont.reads.fastq | samtools sort -o ont.sorted.bam 
+minimap2 -ax map-pb -t 8 Ecoli.UMIGS.fasta pb.reads.fastq | samtools sort -o pb.sorted.bam  
+```
+*Filter long read BAM files to retain primary reads, calculate sequencing depth*  
+```
+samtools view sorted.bam -F 4 -F 256 -F 2048 -bho primary.bam 
+samtools depth -aa -m 100000000 primary.bam > primary.depth.txt
+```
+**BWA-MEM: map short reads to Ecoli.UMIGS**
+```
+bwa mem -k 23 -t 8 Ecoli.UMIGS.fasta fwd.R1.fastq rev.R2.fastq | samtools sort -o sorted.illumina.bam 
+```
+*Mark duplicates, filter to retain primary reads, calculcate sequencing depth*  
+```
+picard.jar MarkDuplicates I=sorted.illumina.bam O=dupsmarked.illumina.bam M=dupsmarked.illumina.metrics VALIDATION_STRINGENCY=SILENT REMOVE_DUPLICATES=TRUE AS=TRUE CREATE_INDEX=TRUE  
+samtools view dupsmarked.illumina.bam -F 4 -F 256 -F 2048 -bho primary.illumina.bam  
+samtools depth -aa -m 100000000 primary.illumina.bam > primary.illumina.depth.txt
+```
+**Count total depth across genome, pMAR2, p5217**  
+```
+grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
+grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
+grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  
 ```
 
 ### Ecoli DNA modification analysis <a name="ecoli.dna.mod"></a>  
@@ -347,66 +363,40 @@ awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.minus.
 scripts/Ecoli_Long_Read_Analysis.Rmd
 ```
 
-### E. coli plasmid quantification <a name="ecoli.plasmid"></a>  
-**Produce depth counts for primary reads mapped to genome, pMAR2, p5217**  
-*Map long reads*
-```
-minimap2 -ax map-ont -t 8 ecoli.unicycler.consensus.fasta ont.reads.fastq | samtools sort -o ont.sorted.bam 
-minimap2 -ax map-pb -t 8 ecoli.unicycler.consensus.fasta pb.reads.fastq | samtools sort -o pb.sorted.bam  
-```
-*Filter long read BAM files to retain primary reads*  
-```
-samtools view sorted.bam -F 4 -F 256 -F 2048 -bho primary.bam  
-```
-*Calculcate sequencing depth*  
-```
-samtools depth -aa -m 100000000 primary.bam > primary.depth.txt 
-```
-*Map short read data*
-```
-bwa mem -k 23 -t 8 ecoli.unicycler.consensus.fasta illumina.reads.R1.fastq illumina.reads.R2.fastq | samtools sort -o sorted.illumina.bam 
-```
-*Mark Duplicates*  
-```
-picard.jar MarkDuplicates I=sorted.illumina.bam O=dupsmarked.illumina.bam M=dupsmarked.illumina.metrics VALIDATION_STRINGENCY=SILENT AS=true CREATE_INDEX=true
-```
-*Filter to retain primary reads*  
-```
-samtools view dupsmarked.illumina.bam -F 4 -F 256 -F 1024 -F 2048 -bho primary.illumina.bam  
-```
-*Calculcate sequencing depth*  
-```
-samtools depth -aa -m 100000000 primary.illumina.bam > primary.illumina.depth.txt  
-```
-**Count total depth across genome, pMAR2, p5217**  
-```
-grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
-grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
-grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  
-```
-**Plasmid qPCR visualization** 
-```
-scripts/Ecoli_Long_Read_Analysis.Rmd
-```
 
 
 ### D. ananassae genome assembly <a name="dana.canu"></a>
-**Canu ONT**  
+**Canu**
+*ONT*
 ```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq  
 ```
-**Canu PacBio**  
+*PacBio CLR*  
 ```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.reads.fastq  
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq  
+```
+*Hybrid ONT and CLR*
+```
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq -nanopore ont.reads.fastq
+```
+*PacBio HiFi*
+```
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
+```
+**Flye**
+*ONT*
+```
+flye --asm-coverage 40 --genome-size 240m --nano-raw ont.reads.fastq -t 24 -o output_dir  
+```
+*PacBio CLR*  
+```
+flye --asm-coverage 40 --genome-size 240m --pacbio-raw pb.reads.fastq -t 24 -o output_dir  
+```
+*PacBio HiFi*
+```
+flye --asm-coverage 40 --genome-size 240m --pacbio-hifi pb.hifi.reads.fastq -t 24 -o output_dir
 ```
 
-canu -p PB.HiFi -d /local/projects-t3/RDBKO/dana.canu/40X/PB.HiFi corOutCoverage=60 genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz
-
-
-**Canu hybrid**  
-```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore-raw nanopore.reads.fastq -pacbio-raw pacbio.reads.fastq  
-```
 **Genome polishing (performed on PacBio Sequel II + ONT LIG hybrid assembly)**  
 ```
 Modify pilon_iter.sh for polishing with short reads/long reads/both
