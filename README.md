@@ -266,7 +266,7 @@ cat genome.chimeras.txt genome.cut.chimeras.txt | awk '{print $1}' - | sort -n |
 ```
 minimap2 -ax map-ont -t 8 Ecoli.UMIGS.fasta ont.reads.fastq | samtools sort -o sorted.bam
 minimap2 -ax map-pb -t 8 Ecoli.UMIGS.fasta pb.reads.fastq | samtools sort -o sorted.bam 
-java -Xmx10g -jar picard-tools-2.5.0/picard.jar FilterSamReads I=sorted.bam O=chimeras.bam READ_LIST_FILE=chimeras_candidates.txt FILTER=includeReadList
+picard.jar FilterSamReads I=sorted.bam O=chimeras.bam READ_LIST_FILE=chimeras_candidates.txt FILTER=includeReadList
 samtools index chimeras.bam
 ```
 *Determine estimate for percentage chimeras*  
