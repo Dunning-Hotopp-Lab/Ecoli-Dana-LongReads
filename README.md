@@ -443,6 +443,36 @@ echo "minimap2 -xmap-pb /local/projects-t3/LGT/Dananassae_2020/dana.postassembly
 awk 'BEGIN{FS=" "}{if(!/>/){print toupper($0)}else{print $1}}' dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fasta > dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fmt.fasta
 ```
 
+### D. ananassae post-assembly processing <a name="dana.post"></a>
+**purge_dups**
+```
+for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do echo "minimap2 -xmap-pb $f /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz > /local/projects-t3/RDBKO/dana.postassembly/purge_dups/$(basename ${f%_s*}).paf" | qsub -P jdhotopp-lab -l mem_free=5G -N minimap2 -cwd -V; done
+/home/etvedte/scripts/purge_dups/bin/pbcstat PB.HiFi.canu.contigs.fasta.paf
+/home/etvedte/scripts/purge_dups/scripts/hist_plot.py PB.stat PB.stat.hist.jpeg
+/home/etvedte/scripts/purge_dups/bin/calcuts -d 1 -l5 -m195 -u300 PB.stat > cutoffs 2>calcuts.log
+
+for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do /home/etvedte/scripts/purge_dups/bin/split_fa $f > /local/projects-t3/RDBKO/dana.postassembly/purge_dups/$(basename ${f%_s*}).split; done
+for f in *split; do echo "minimap2 -xasm5 -DP $f $f > $f.self.paf" | qsub -P jdhotopp-lab -l mem_free=5G -N minimap2 -cwd -V; done
+
+/home/etvedte/scripts/purge_dups/bin/purge_dups -2 -T cutoffs -c PB.base.cov PB.CLR.canu.raw.contigs.fasta.split.self.paf > dups.bed 2> purge_dups.log
+/home/etvedte/scripts/purge_dups/bin/get_seqs -e dups.bed /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta
+```
+**purge_haplotigs** 
+```
+for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do echo minimap2 -t 4 -ax map-pb $f /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz --secondary=no | samtools sort -m 5G -o /local/projects-t3/RDBKO/dana.postassembly/purge_haplotigs/$(basename ${f%_s*}).HiFi.aligned.bam -T /local/scratch/etvedte; done
+echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs hist -b PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam -g /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta -t 4 -d 400" | qsub -P jdhotopp-lab -l mem_free=5G -q threaded.q -pe thread 4 -N purge.hist -cwd -V
+/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs cov -l 5 -m 195 -h 300 -i PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam.gencov -j 80 -s 80
+echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs purge -g /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta -b PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam -c coverage_stats.csv -d -t 8" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 8 -N ph.purge -cwd -V
+echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs clip -p PB.CLR.flye.curated.fasta -h curated.haplotigs.fasta -t 4" | qsub -P jdhotopp-lab -l mem_free=5G -q threaded.q -pe thread 4 -N ph.clip -cwd -V
+```
+**purge_haplotigs final ** 
+```
+minimap2 -t 4 -ax map-pb asm.fasta pb.hifi.fastq.gz --secondary=no | samtools sort -m 5G -o aligned.bam
+purge_haplotigs hist -b aligned.bam -g asm.fasta -t 4 -d 400
+purge_haplotigs cov -l 5 -m 195 -h 300 -i aligned.bam.gencov -j 80 -s 80
+purge_haplotigs purge -g asm.fasta -b aligned.bam -c coverage_stats.csv -d -t 8
+purge_haplotigs clip -p curated.fasta -h curated.haplotigs.fasta -t 4
+```
 
 ### D. ananassae genome assessment <a name="dana.eval"></a>  
 
