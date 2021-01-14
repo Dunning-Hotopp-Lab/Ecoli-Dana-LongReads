@@ -13,7 +13,7 @@ Eric S. Tvedte
 6. [E. coli plasmid quantification](#ecoli.plasmid)  
 7. [D. ananassae genome assembly](#dana.canu)
 8. [Dana.UMIGS genome assembly](#dana.umigs)
-9. [Anchoring Dana.UMIGS contigs](#dana.anchor)
+9. [Anchoring D. ananassae assembly contigs](#dana.anchor)
 10. [Evaluation of D. ananassae genome assemblies](#dana.eval)  
 11. [Detection of DNA modification in D. ananassae](#dana.dna.mod)
 12. [R scripts for data visualization](#data.vis)
@@ -472,6 +472,32 @@ purge_haplotigs hist -b aligned.bam -g asm.fasta -t 4 -d 400
 purge_haplotigs cov -l 5 -m 195 -h 300 -i aligned.bam.gencov -j 80 -s 80
 purge_haplotigs purge -g asm.fasta -b aligned.bam -c coverage_stats.csv -d -t 8
 purge_haplotigs clip -p curated.fasta -h curated.haplotigs.fasta -t 4
+```
+## Anchoring D. ananassae assembly contigs <a name="dana.anchor"></a>
+**Major chromosome arm contigs (X, 2, 3)**
+```
+blastn -query chrom.map.loci.fasta -db asm.fasta -max_target_seqs 5 -max_hsps 5 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > initial.blast.out #inspect output to generate list of chromosome arm sequences
+seqkit grep -f chr.arm.contigs.list asm.fasta > chr.arm.contigs.fasta
+blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out
+```
+
+**Chromosome 4 contigs and LGT contigs**
+*Chromosome 4*
+```
+
+```
+
+*LGT*
+```
+nucmer -l 5000 --prefix asm.LGT wAna.genome.fasta asm.fasta
+show-coords -r asm.LGT.delta > asm.LGT.delta.coords
+tail -n +6 asm.LGT.delta.coords | awk '{print $13}' | sort -n | uniq > LGT.contigs.list #retrieves set of LGT contigs
+tail -n +6 asm.LGT.delta.coords | awk '{total = total + $8}END{print "LGT segment length = "total}' #estimates alignment block length of wAna to LGT
+```
+
+**Chromosome Y contigs**
+```
+
 ```
 
 ### D. ananassae genome assessment <a name="dana.eval"></a>  
