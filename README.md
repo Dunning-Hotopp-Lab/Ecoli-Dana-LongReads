@@ -489,10 +489,18 @@ blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 
 
 *LGT*
 ```
-nucmer -l 5000 --prefix asm.LGT wAna.genome.fasta asm.fasta
-show-coords -r asm.LGT.delta > asm.LGT.delta.coords
-tail -n +6 asm.LGT.delta.coords | awk '{print $13}' | sort -n | uniq > LGT.contigs.list #retrieves set of LGT contigs
-tail -n +6 asm.LGT.delta.coords | awk '{total = total + $8}END{print "LGT segment length = "total}' #estimates alignment block length of wAna to LGT
+nucmer -l 1000 --prefix asm.LGT wAna.genome.fasta asm.fasta
+delta-filter asm.LGT.delta -q > asm.LGT.filter
+show-coords -r asm.LGT.filter -T > asm.LGT.filter.coords
+tail -n +5 asm.LGT.delta.coords | awk '{print $13}' | sort -n | uniq > LGT.contigs.list #retrieves set of LGT contigs
+
+
+
+tail -n +5 finalpass.coords | awk '{print $9"\t"$3"\t"$4}' > finalpass.bed
+Rscript /home/etvedte/scripts/fixbed.R finalpass.bed fixed.bed
+bedtools coverage -a fixed.bed -b fixed.bed -hist | grep all | awk '{total = total + $3}END{print "LGT segment length = "total}' #estimates alignment block length of wAna to LGT
+
+
 ```
 
 **Chromosome Y contigs**
