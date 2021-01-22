@@ -484,6 +484,12 @@ blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 
 **Chromosome 4 contigs and LGT contigs**
 *Chromosome 4*
 ```
+minimap2 -cx asm5 /local/projects-t3/RDBKO/dana.postassembly/Dana.UMIGS.unpurged.contigs.fasta Leung2017_chr4_scaffolds.final.fasta --secondary=no > chr4.aln.paf
+awk '{print $6}' chr4.aln.paf | sort -n | uniq > chr4.candidate.list
+seqkit grep -f chr4.candidate.list Dana.UMIGS.contigs.fasta > chr4.candidate.contigs.fasta 
+
+nucmer -l 1000 --prefix chr4 Leung2017_chr4_scaffolds.final.fasta chr4.candidate.contigs.fasta
+mummerplot --color --png --prefix chr4 chr4.delta #manually inspect and refine results
 
 ```
 
