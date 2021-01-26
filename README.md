@@ -478,7 +478,7 @@ purge_haplotigs clip -p curated.fasta -h curated.haplotigs.fasta -t 4
 ```
 blastn -query chrom.map.loci.fasta -db asm.fasta -max_target_seqs 5 -max_hsps 5 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > initial.blast.out #inspect output to generate list of chromosome arm sequences
 seqkit grep -f chr.arm.contigs.list asm.fasta > chr.arm.contigs.fasta
-blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out
+blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send sstrand evalue slen" > final.blast.out
 ```
 
 **Chromosome 4 contigs and LGT contigs**
@@ -537,6 +537,10 @@ mummerplot --color --postscript --small --prefix chr.align -Q chr.contig.orienta
 minimap2 -t 4 -ax map-pb asm.fasta pb.fastq.gz --secondary=no | samtools sort -m 5G -o pb.aln.bam
 minimap2 -t 4 -ax map-ont asm.fasta ont.fastq.gz --secondary=no | samtools sort -m 5G -o ont.aln.bam
 purge_haplotigs hist -b aln.bam -g Dana.UMIGS.fasta -t 4
+samtools view aln.bam -L eu.bed > eu.aln.bam
+samtools view aln.bam -L het.bed > het.aln.bam
+purge_haplotigs hist -b eu.aln.bam -g Dana.UMIGS.fasta -t 4
+purge_haplotigs hist -b het.aln.bam -g Dana.UMIGS.fasta -t 4
 ```
 
 #Dana basemod
