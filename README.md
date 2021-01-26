@@ -516,42 +516,28 @@ bedtools coverage -a fixed.bed -b fixed.bed -hist | grep all | awk '{total = tot
 
 ### D. ananassae genome assessment <a name="dana.eval"></a>  
 
-**D. ananassae QUAST-LG** 
+**D. ananassae QUAST** 
 ```
 quast.py ONT.RAPID.raw_contigs.fasta ONT.LIG.raw_contigs.fasta PB.SequelII.raw_contigs.fasta Hybrid.RAPID+SequelII.raw_contigs.fasta Hybrid.LIG+SequelII.raw_contigs.fasta Hybrid.RSII+SequelII.raw_contigs.fasta Hybrid.LIG+SequelII.polished.short_contigs.fasta Hybrid.LIG+SequelII.polished.long_contigs.fasta Hybrid.LIG+SequelII.polished_both_contigs.fasta Hybrid.LIG+SequelII.polished_hifi_contigs.fasta Dana.Miller2018.fasta Dana.caf1.fasta Dana.UMIGS_contigs.fasta -r Dana.UMIGS_contigs.fasta -o quast_output_dir -t 24 --large -m 0 --conserved-genes-finding --split-scaffolds
 ```
-
-non-chromosomal contigs
+**D. ananassae QUAST chromosome contigs**
 ```
-echo "/home/etvedte/scripts/quast-5.0.2/quast.py /local/projects-t3/RDBKO/dana.postassembly/dana.minion.RAPID.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.minion.LIG.raw_contigs.nonchr.fasta /local/projects-t3/RDBKO/dana.postassembly/dana.pb.sqII.raw_contigs.nonchr.fasta /local/projects-t3/LGT/Dananassae_2020/dana.quickmerge/flye+canu.FREEZE.custom.params/pilon.long.bases/dana.assembly.FREEZE.plusMITO.6.1.20.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/Miller2018/Dana.pass.minimap2.racon.x3.pilon.x3.rh.nonchr.fasta /local/projects-t3/RDBKO/nonIGS_dana/caf1/GCA_000005115.1_dana_caf1_genomic_scaffolds.nonchr.fna -o quast_all_nonchr -t 24 --large -m 0 --split-scaffolds" | qsub -P jdhotopp-lab -l mem_free=20G -q threaded.q -pe thread 24 -N quast.LG -cwd -V
-```
-
-### Alignment of contigs to D. ananassae polytene map <a name="dana.map"></a>  
-*Initial BLAST against polished contigs to determine contig orientation*  
-```
-makeblastdb -in contigs.fasta -out contigs.fasta -dbtype nucl -parse_seqids  
-blastn -query dana.polytene.map.loci.fasta -db contigs.fasta -max_target_seqs 10 -max_hsps 10 -outfmt 6 > initial.blast.out  
-```
-*Extract chromosome contigs, reverse complement if necessary* 
-```
-samtools faidx contigs.fasta fwd.contig.name >> chr.contigs.fasta  
-samtools faidx -i contigs.fasta rev.contig.name >> chr.contigs.fasta  
-```
-*Second round of BLAST using chromosome contigs and custom output columns*  
-```
-makeblastdb -in chr.contigs.fasta -out chr.contigs.fasta -dbtype nucl -parse_seqids  
-blastn -query dana.polytene.map.loci.fasta -db chr.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send evalue slen" > final.blast.out  
+minimap2 -cx asm5 asm.fasta Dana.UMIGS.chromosome.fasta --secondary=no > chr.aln.paf
+awk '$11>50000' chr.aln.paf | awk '{print $6}' | sort -n | uniq > chr.contig.list
+seqkit grep -f chr.contig.list asm.fasta > chr.contig.fasta
 ```
 
-**filter out chromosomes, redo QUAST stats
-/usr/local/packages/bbtools/filterbyname.sh in=dana.minion.RAPID.raw_contigs.fasta out=dana.minion.RAPID.raw_contigs.nonchr.fasta names=dana.minion.RAPID.raw_contigs.chr.list include=f
-
-
-**Rename FASTA**  
+**D. ananassae NUCmer chromosome contigs**
 ```
-for f in *_contigs.fasta; do awk '/^>/{print ">ecoli_contig" ++i; next}{print}' < $f > ${f%_c*}_contigs_rn.fasta; done
+nucmer -l 500 --maxmatch --prefix chr.align Dana.UMIGS.chromosome.fasta chr.contig.fasta
+mummerplot --color --postscript --small --prefix chr.align -Q chr.contig.orientation.list -R Dana.UMIGS.chromosome.fasta
 ```
-
+**D. ananassae heterochromatin sequencing bias**
+```
+minimap2 -t 4 -ax map-pb asm.fasta pb.fastq.gz --secondary=no | samtools sort -m 5G -o pb.aln.bam
+minimap2 -t 4 -ax map-ont asm.fasta ont.fastq.gz --secondary=no | samtools sort -m 5G -o ont.aln.bam
+purge_haplotigs hist -b aln.bam -g Dana.UMIGS.fasta -t 4
+```
 
 #Dana basemod
 tombo text_output signif_sequence_context --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --num-regions 1000 --num-bases 50
