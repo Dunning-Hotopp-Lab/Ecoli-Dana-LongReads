@@ -32,7 +32,6 @@ guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.
 ```
 cat ONT.LIG.fastq | NanoLyse --reference DCS.fasta | gzip > ONT.LIG.filterDCS.fastq.gz 
 ```
-
 ### Read length distributions <a name="ecoli.read"></a>
 **Determine read length distributions** 
 ```
@@ -46,145 +45,6 @@ seqkit sample -j 8 -p 0.3677 -o Ecoli.PB.RSII.100X.fastq Ecoli.PB.RSII.fastq.gz
 seqkit sample -j 8 -p 0.0078 -o Ecoli.PB.CLR.100X.fastq Ecoli.PB.CLR.fastq.gz
 seqkit sample -j 8 -p 0.0216 -o Ecoli.PB.HiFi.100X.fastq Ecoli.PB.HiFi.fastq.gz
 ```
-
-**Generate histograms in R**  
-Perform analysis for all reads and subsampled reads  
-Input: binned read count frequencies from bbtools, set as in.path
-Output: read length histograms
-```r
-library(ggplot2)
-library(gtable)
-library(grid)
-library(scales)
-
-all.read.data = data.frame()
-replicate.data = data.frame()
-
-#PacBio Sequel II
-in.path = "pb.reads.hist.final.out"
-data <- read.table(in.path, header = F, sep = '\t')
-colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
-data[,"rlib"] <- "PB_SEQUELII"
-data$length[1] <- 1
-data[,"length.mean"] <- mean(data$length)
-data[,"length.max"] <- max(data$length)
-
-all.read.data <- rbind(all.read.data,data)
-
-#ONT RAPID
-in.path = "ont.reads.hist.final.out"
-data <- read.table(in.path, header = F, sep = '\t')
-colnames(data) <- c("length", "reads", "pct_reads", "cum_reads", "cum_pct_reads", "bases", "pct_bases", "cum_bases", "cum_pct_bases")
-data[,"rlib"] <- "ONT_RAPID"
-data$length[1] <- 1
-data[,"length.mean"] <- mean(data$length)
-data[,"length.max"] <- max(data$length)
-
-all.read.data <- rbind(all.read.data,data)
-
-#convert to numeric
-all.read.data$cum_pct_bases <- as.character(all.read.data$cum_pct_bases)
-all.read.data$cum_pct_bases <- gsub("%", "", all.read.data$cum_pct_bases)
-all.read.data$cum_pct_bases <- as.numeric(all.read.data$cum_pct_bases)
-gsub("%", "", as.character(factor(all.read.data$cum_pct_bases)))
-
-#convert to numeric
-all.read.data$pct_bases <- as.character(all.read.data$pct_bases)
-all.read.data$pct_bases <- gsub("%", "", all.read.data$pct_bases)
-all.read.data$pct_bases <- as.numeric(all.read.data$pct_bases)
-gsub("%", "", as.character(factor(all.read.data$pct_bases)))
-
-#convert to numeric
-all.read.data$cum_pct_reads <- as.character(all.read.data$cum_pct_reads)
-all.read.data$cum_pct_reads <- gsub("%", "", all.read.data$cum_pct_reads)
-all.read.data$cum_pct_reads <- as.numeric(all.read.data$cum_pct_reads)
-gsub("%", "", as.character(factor(all.read.data$cum_pct_reads)))
-
-#convert to numeric
-all.read.data$pct_reads <- as.character(all.read.data$pct_reads)
-all.read.data$pct_reads <- gsub("%", "", all.read.data$pct_reads)
-all.read.data$pct_reads <- as.numeric(all.read.data$pct_reads)
-gsub("%", "", as.character(factor(all.read.data$pct_reads)))
-
-#add small numbers so log transformation can be used
-all.read.data$cum_pct_bases <- (100 - all.read.data$cum_pct_bases) + 0.001
-all.read.data$cum_pct_reads <- 100 - all.read.data$cum_pct_reads
-
-top_theme = theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(), axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "none")
-
-p1 <- ggplot(all.read.data, aes(x=all.read.data$length, y=reads, colour = rlib)) + 
-    geom_line() +
-    xlab("read length (bp)") +
-    ylab("read count") +
-    scale_x_continuous(trans = "log10", limits = c(1000,1000000)) +
-    #scale_x_continuous(limits = c(0,250000)) +
-    scale_y_continuous(label = comma, trans = "log10", limits = c(1,1000000)) +
-    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
-    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
-    theme_bw() +  
-    top_theme
-
-p2 <- ggplot(all.read.data, aes(x=all.read.data$length, y=pct_reads, colour = rlib)) + 
-    geom_line() +
-    xlab("read length (bp)") +
-    ylab("read count (% of total)") +
-    scale_x_continuous(trans = "log10", limits = c(1000,1000000)) +
-    #scale_x_continuous(limits = c(0,250000)) +
-    scale_y_continuous(limits = c(0,20)) +
-    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
-    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
-    theme_bw() +  
-    top_theme
-
-p3 <- ggplot(all.read.data, aes(x=length, y=bases, colour = rlib)) + 
-    geom_line() +
-    xlab("read length (bp)") +
-    ylab("bases sequenced") +
-    scale_x_continuous(label = comma, trans = "log10", limits = c(1000,1000000)) +
-    #scale_x_continuous(limits = c(0,250000)) +
-    theme(axis.ticks = element_blank(), axis.text.y = element_blank()) + 
-    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
-    #scale_color_brewer(palette = "Dark2") +
-    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
-    theme_bw() + 
-    theme(axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "bottom")
-
-p4 <- ggplot(all.read.data, aes(x=length, y=pct_bases, colour = rlib)) + 
-    geom_line() +
-    xlab("read length (bp)") +
-    ylab("bases sequenced (% of total)") +
-    scale_x_continuous(label = comma, trans = "log10", limits = c(1000,1000000)) +
-    #scale_x_continuous(limits = c(0,250000)) +
-    scale_y_continuous(limits = c(0,20)) +
-    theme(axis.ticks = element_blank(), axis.text.y = element_blank()) + 
-    geom_vline(aes(xintercept=length.max, color=rlib), linetype="dashed") +
-    #scale_color_brewer(palette = "Dark2") +
-    scale_color_manual(values=c('#1b9e77','#1b9e7770', '#d95f02','#d95f0270', '#e7298a','#7570b3')) +
-    theme_bw() + 
-    theme(axis.title.y = element_text(size = 8), axis.text.y = element_text(size = 8), legend.position = "bottom")
-
-#optional pdf output
-pdf("X:/RDBKO/raw.read.composition/Ecoli.readcomp.full.pdf", width = 6.5, height = 5)
-   g1 <- ggplotGrob(p1)
-   g2 <- ggplotGrob(p2)
-   g3 <- ggplotGrob(p3)
-   g4 <- ggplotGrob(p4)
-  
-   g5 <- rbind(g1, g3, size = "first")
-   g6 <- rbind(g2, g4, size = "first")
-  
-   g5$widths <- unit.pmax(g1$widths, g4$widths)
-   g6$widths <- unit.pmax(g2$widths, g5$widths)
-   
-   g <- cbind(g5, g6, size = "first")
-   grid.newpage()
-   grid.draw(g)
-
-#optional pdf close 
-dev.off()
-
-```
-
 ### E. coli genome assembly <a name="ecoli.asm"></a>
 
 **Canu ONT assembly**  
@@ -193,13 +53,12 @@ canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngi
 ```
 **Canu PacBio RSII/CLR assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
 ```
 **HiCanu PacBio HiFi assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
 ```
-
 **Polish, circularize, and rotate**  
 ```
 bwa index genome.fasta
@@ -232,7 +91,7 @@ busco --config config.ini -i contigs.fasta -c 8 -o output_dir -l bacteria -m gen
 ```
 **QUAST: consensus identity, missassemblies**
 ```
-quast.py -m 0 -t 8 contigs.1.fasta contigs.2.fasta contigs.3.fasta -o output_dir -r Ecoli.UMIGS.fasta
+quast.py -m 0 -t 8 contigs.1.fasta contigs.2.fasta contigs.3.fasta -o output_dir -r Ecoli.UMIGS.2X.fasta
 ```
 **Alvis: chimeric reads**  
 *Map ONT reads*  
@@ -297,9 +156,9 @@ samtools depth -aa -m 100000000 primary.illumina.bam > primary.illumina.depth.tx
 ```
 **Count total depth across genome, pMAR2, p5217**  
 ```
-grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  
-grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  
-grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  
+grep ecoli.genome primary.depth.txt | awk '{total = total + $3}END{print "Total genome depth = "total}' -  # total depth of ecoli genome
+grep pMAR2 primary.depth.txt | awk '{total = total + $3}END{print "Total pMAR2 depth = "total}' -  # total depth of pMAR2
+grep p5217 primary.depth.txt | awk '{total = total + $3}END{print "Total p5217 depth = "total}' -  # total depth of p5217
 ```
 
 ### Ecoli DNA modification analysis <a name="ecoli.dna.mod"></a>  
@@ -317,19 +176,19 @@ motifMaker reprocess -f ecoli.unicycler.consensus.fasta -g pb.basemods.gff -m pb
 ```
 **PacBio Sequel II reads**
 ```
-smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml pb.SQII.subreads.bam
-smrtlink_8.0.0.80529/smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml ecoli.unicycler.consensus.fasta
+smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml pb.SQII.subreads.bam
+smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml ecoli.unicycler.consensus.fasta
 
-smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
+smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
 
-smrtlink_8.0.0.80529/smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
+smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
 ```
 
 **ONT reads**
 ```
 tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
 
-tombo resquiggle fast5_dir ecoli.unicycler.consensus.fasta --processes 16 --num-most-common-errors 5
+tombo resquiggle fast5_dir Ecoli.UMIGS.fasta --processes 16 --num-most-common-errors 5
 
 tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
 
@@ -339,13 +198,13 @@ tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT
 
 tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif CCWGG --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.CCWGG.pdf
 
-tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stats LIG.5mC.tombo.stats LIG.6mA.tombo.stats --motif-descriptions CCWGG:2:"CCWGG RAPID" GATC:2:"GATC RAPID" CCWGG:2:"CCWGG LIG"::GATC:2:"GATC LIG" --genome-fasta ecoli.unicycler.consensus.fasta
+tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stats LIG.5mC.tombo.stats LIG.6mA.tombo.stats --motif-descriptions CCWGG:2:"CCWGG RAPID" GATC:2:"GATC RAPID" CCWGG:2:"CCWGG LIG"::GATC:2:"GATC LIG" --genome-fasta Ecoli.UMIGS.fasta
 ```
 
 **Plot PacBio modification QV versus ONT dampened fraction**
 *PacBio*
 ```
-grep 'm6A' cromwell_out/cromwell-executions/pb_basemods/cb4f28f5-fff9-426a-8010-a03646fb69de/call-reprocess_motifs/execution/motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.sqII.basemods.m6A.tsv
+grep 'm6A' pb.motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.basemods.m6A.tsv
 ```
 *ONT*
 ```
@@ -358,14 +217,35 @@ awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.plus.b
 wig2bed < ONT.6mA.alt.dampened_fraction_modified_reads.minus.wig > ONT.6mA.alt.dampened_fraction_modified_reads.minus.bed  
 awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.minus.bed > ONT.6mA.alt.dampened_fraction_modified_reads.minus.final.tsv  
 ```
-*Visualization*
-```
-scripts/Ecoli_Long_Read_Analysis.Rmd
-```
-
-
 
 ### D. ananassae genome assembly <a name="dana.canu"></a>
+**Canu ONT assembly**  
+```
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq 
+```
+**Canu PacBio CLR assembly** 
+```
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
+```
+**Canu PacBio ONT-CLR assembly** 
+```
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
+```
+**HiCanu PacBio HiFi assembly** 
+```
+canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
+```
+**Flye ONT assembly**
+```
+flye -t 24 --plasmids -o output.dir --nano-raw ont.reads.fastq
+```
+**Flye PacBio RSII/CLR assembly**
+```
+flye -t 24 --plasmids -o output.dir --pacbio-raw pacbio.reads.fastq
+```
+**Flye PacBio HiFi assembly**
+
+
 **Canu**
 *ONT*
 ```
