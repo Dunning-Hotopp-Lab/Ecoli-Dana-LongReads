@@ -2,7 +2,7 @@
 
 Eric S. Tvedte
 
-2020-09-14
+2021-01-28
 
 ## Table of Contents
 1. [Prepare sequencing files for assembly](#ecoli.prep)
@@ -221,138 +221,66 @@ awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.minus.
 ### D. ananassae genome assembly <a name="dana.canu"></a>
 **Canu ONT assembly**  
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq 
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq 
 ```
 **Canu PacBio CLR assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
 ```
 **Canu PacBio ONT-CLR assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq -nanopore ont.reads.fastq
 ```
 **HiCanu PacBio HiFi assembly** 
 ```
-canu -p output.prefix -d output.dir genomeSize=4.6m corOutCoverage=1000 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
+canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
 ```
 **Flye ONT assembly**
 ```
-flye -t 24 --plasmids -o output.dir --nano-raw ont.reads.fastq
+flye --asm-coverage 40 --genome-size 240m --nano-raw ont.reads.fastq -t 24 -o output_dir
 ```
-**Flye PacBio RSII/CLR assembly**
+**Flye PacBio CLR assembly**
 ```
-flye -t 24 --plasmids -o output.dir --pacbio-raw pacbio.reads.fastq
+flye --asm-coverage 40 --genome-size 240m --pacbio-raw pb.reads.fastq -t 24 -o output_dir
 ```
 **Flye PacBio HiFi assembly**
-
-
-**Canu**
-*ONT*
-```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -nanopore ont.reads.fastq  
-```
-*PacBio CLR*  
-```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq  
-```
-*Hybrid ONT and CLR*
-```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio pacbio.reads.fastq -nanopore ont.reads.fastq
-```
-*PacBio HiFi*
-```
-canu -p output.prefix -d output.dir genomeSize=240m gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-hifi pacbio.hifi.reads.fastq
-```
-**Flye**
-*ONT*
-```
-flye --asm-coverage 40 --genome-size 240m --nano-raw ont.reads.fastq -t 24 -o output_dir  
-```
-*PacBio CLR*  
-```
-flye --asm-coverage 40 --genome-size 240m --pacbio-raw pb.reads.fastq -t 24 -o output_dir  
-```
-*PacBio HiFi*
 ```
 flye --asm-coverage 40 --genome-size 240m --pacbio-hifi pb.hifi.reads.fastq -t 24 -o output_dir
 ```
-
-**Genome polishing (performed on PacBio Sequel II + ONT LIG hybrid assembly)**  
+**Polish ONT assemblies**  
 ```
-Modify pilon_iter.sh for polishing with short reads/long reads/both
-scripts/pilon_iter.sh canu/assembly.contigs.fasta illuminaPE_R1.fastq.gz illuminaPE_R2.fastq.gz canu/assembly.trimmedReads.fasta  
+bwa index ont.asm.fasta
+bwa mem -t 16 ont.asm.fasta fwd.R1.fastq rev.R2.fastq | samtools view -@ 16 -bS - | samtools sort -@ 16 -o ShortRead.bam -
+pilon-1.22.jar --genome genome.fasta --frags ShortRead.bam --changes --threads 16 --minmq 10 --fix bases --output pilon       
 ```
 ### Dana.UMIGS genome assembly <a name="dana.umigs"></a>
-**Canu hybrid**
+**Extract chromosome arm contigs**
 ```
-canu -p output.prefix -d output.dir genomeSize=240m corOutCoverage=80 gridEngineThreadsOption="-pe thread THREADS" gridEngineMemoryOption="-l mem_free=MEMORY" gridOptions="-P jdhotopp-lab -q threaded.q" -pacbio-raw pacbio.sequelII.reads.fastq.gz -nanopore-raw ont.LIG.reads.fastq.gz
+samtools faidx pb.clr.canu.contigs.fasta tig00000049 > chrXL.fasta
+samtools faidx pb.clr.canu.contigs.fasta tig00000036 > chrXR.fasta
+samtools faidx pb.clr.flye.contigs.fasta contig_269 > chr2L.fasta
+samtools faidx pb.clr.flye.contigs.fasta contig_298 > chr2R.fasta
+samtools faidx pb.clr.canu.contigs.fasta tig00000025 > chr3L.fasta
+samtools faidx ont.flye.contigs.fasta scaffold_346 > chr3R.fasta
+cat chr* pb.clr.canu.non.chr.contigs.fasta > pb.clr.merge.fasta
 ```
-**Polish with Arrow (2X)**  
+**Merge and polish**
 ```
-pbmm2 align canu.assembly.contigs.fasta pacbio.sequelII.subreads.bam canu.assembly.mapped.pb.sqII_sorted.bam --sort -j 16 -J 8
-
+seqkit seq -m 50000 pb.hifi.contigs.fasta > pb.hifi.50kbp.contigs.fasta
+merge_wrapper.py pb.clr.merge.fasta pb.hifi.50kbp.contigs.fasta
+pbmm2 align merged.asm.fasta pb.clr.subreads.bam aln.bam --sort -j 16 -J 8 
+arrow -j 16 --algorithm arrow --noEvidenceConsensusCall reference --referenceFilename merged.asm.fasta aln.bam -o arrow.polished.fasta -o arrow.polished.gff
+minimap2 -t 16 -ax map-pb arrow.polished.fasta pb.hifi.reads.fastq | samtools view -@ 24 -bS - | samtools sort -@ 24 -o  LongRead.bam -
+pilon-1.22.jar --genome genome.fasta --unpaired LongRead.bam --changes --threads 16 --minmq 10 --fix bases --output pilon
 ```
-**polish with arrow using Sequel II data**
+**Purge haplotigs**
 ```
-echo "/usr/local/packages/smrttools/install/current/bundles/smrttools/smrtcmds/bin/pbmm2 align Circularized_assembly_1_dana.illumina.mito.NOVOPlasty.fasta /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA/RANDD_20190301_S64018_PL100122512-1_C01.subreads.bam Circularized_assembly_1_dana.illumina.mito.NOVOPlasty.sqII.arrow1_sorted.bam --sort -j 16 -J 8" | qsub -P jdhotopp-lab -l mem_free=50G -N pbmm2.align -q threaded.q -pe thread 16 -cwd -V
-```
-
-**Flye Sequel II**
-```
-flye -g 240m -t 24 -o flye_assembly_dir --asm-coverage 60 --pacbio-raw pacbio.sequelII.reads.fastq.gz
-```
-
-**Map PacBio HiFi data**  
-
-
-
-**purge haplotigs from assembly**
-```
-echo "minimap2 -xmap-pb /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.fasta /local/projects-t3/RDBKO/sequencing/Dana.Hawaii.pbSequelII.raw.fastq.gz | gzip -c - > dana.hybrid.80X.arrow.rd2.mappedsqII.paf.gz" | qsub -P jdhotopp-lab -l mem_free=10G -N minimap2 -cwd
-
-/local/projects-t3/RDBKO/scripts/purge_dups/bin/split_fa /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.fasta > /local/projects-t3/LGT/Dananassae_2020/dana.postassembly/arrow/sqII.rd2/dana.hybrid.80X.arrow.rd2.contigs.split
-
-/home/etvedte/scripts/purge_dups/bin/pbcstat dana.hybrid.80X.contigs.arrow.polished.mappedhifi.paf.gz
-/home/etvedte/scripts/purge_dups/bin/calcuts PB.stat > cutoffs 2> calcuts.log
-/home/etvedte/scripts/purge_dups/scripts/hist_plot.py PB.stat hist.out.pdf
+minimap2 -t 4 -ax map-pb pilon.fasta pb.hifi.fastq.gz --secondary=no | samtools sort -m 5G -o aln.bam
+purge_haplotigs hist -b aln.bam -g pilon.fasta -t 4 -d 400
+purge_haplotigs cov -l 5 -m 195 -h 300 -i aln.bam.gencov -j 80 -s 80
+purge_haplotigs purge -g pilon.fasta -b aln.bam -c coverage_stats.csv -d -t 8
 ```
 
-**Convert bases to upper case**
-*By default arrow outputs regions with no consensus as lower case, i.e. 'acgt'. In order to properly annotate repetitive regions as lower case, all bases must be converted to upper case. Note that this could have been accomplished in arrow using the parameter --noEvidenceConsensusCall reference* 
-```
-awk 'BEGIN{FS=" "}{if(!/>/){print toupper($0)}else{print $1}}' dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fasta > dana.hybrid.80X.arrow.rd2.contigs.FREEZE.fmt.fasta
-```
-
-### D. ananassae post-assembly processing <a name="dana.post"></a>
-**purge_dups**
-```
-for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do echo "minimap2 -xmap-pb $f /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz > /local/projects-t3/RDBKO/dana.postassembly/purge_dups/$(basename ${f%_s*}).paf" | qsub -P jdhotopp-lab -l mem_free=5G -N minimap2 -cwd -V; done
-/home/etvedte/scripts/purge_dups/bin/pbcstat PB.HiFi.canu.contigs.fasta.paf
-/home/etvedte/scripts/purge_dups/scripts/hist_plot.py PB.stat PB.stat.hist.jpeg
-/home/etvedte/scripts/purge_dups/bin/calcuts -d 1 -l5 -m195 -u300 PB.stat > cutoffs 2>calcuts.log
-
-for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do /home/etvedte/scripts/purge_dups/bin/split_fa $f > /local/projects-t3/RDBKO/dana.postassembly/purge_dups/$(basename ${f%_s*}).split; done
-for f in *split; do echo "minimap2 -xasm5 -DP $f $f > $f.self.paf" | qsub -P jdhotopp-lab -l mem_free=5G -N minimap2 -cwd -V; done
-
-/home/etvedte/scripts/purge_dups/bin/purge_dups -2 -T cutoffs -c PB.base.cov PB.CLR.canu.raw.contigs.fasta.split.self.paf > dups.bed 2> purge_dups.log
-/home/etvedte/scripts/purge_dups/bin/get_seqs -e dups.bed /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta
-```
-**purge_haplotigs** 
-```
-for f in /local/projects-t3/RDBKO/dana.flye/*/*contigs.fasta; do echo minimap2 -t 4 -ax map-pb $f /local/projects-t3/RDBKO/sequencing/cHI_Dana_2_15_19_PACBIO_DATA_HiFi/cHI_Dana_2_15_19/PACBIO_DATA/RANDD_20191011_S64018_PL100122512-3_A01.ccs.fastq.gz --secondary=no | samtools sort -m 5G -o /local/projects-t3/RDBKO/dana.postassembly/purge_haplotigs/$(basename ${f%_s*}).HiFi.aligned.bam -T /local/scratch/etvedte; done
-echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs hist -b PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam -g /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta -t 4 -d 400" | qsub -P jdhotopp-lab -l mem_free=5G -q threaded.q -pe thread 4 -N purge.hist -cwd -V
-/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs cov -l 5 -m 195 -h 300 -i PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam.gencov -j 80 -s 80
-echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs purge -g /local/projects-t3/RDBKO/dana.postassembly/PB.CLR.canu.raw.contigs.fasta -b PB.CLR.canu.raw.contigs.fasta.HiFi.aligned.bam -c coverage_stats.csv -d -t 8" | qsub -P jdhotopp-lab -l mem_free=10G -q threaded.q -pe thread 8 -N ph.purge -cwd -V
-echo "/home/etvedte/scripts/purge_haplotigs/bin/purge_haplotigs clip -p PB.CLR.flye.curated.fasta -h curated.haplotigs.fasta -t 4" | qsub -P jdhotopp-lab -l mem_free=5G -q threaded.q -pe thread 4 -N ph.clip -cwd -V
-```
-**purge_haplotigs final ** 
-```
-minimap2 -t 4 -ax map-pb asm.fasta pb.hifi.fastq.gz --secondary=no | samtools sort -m 5G -o aligned.bam
-purge_haplotigs hist -b aligned.bam -g asm.fasta -t 4 -d 400
-purge_haplotigs cov -l 5 -m 195 -h 300 -i aligned.bam.gencov -j 80 -s 80
-purge_haplotigs purge -g asm.fasta -b aligned.bam -c coverage_stats.csv -d -t 8
-purge_haplotigs clip -p curated.fasta -h curated.haplotigs.fasta -t 4
-```
 ## Anchoring D. ananassae assembly contigs <a name="dana.anchor"></a>
 **Major chromosome arm contigs (X, 2, 3)**
 ```
