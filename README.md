@@ -363,7 +363,7 @@ meme -oc Dana.tombo.meme -dna -mod zoops -nmotifs 50 tombo.significant_regions.f
 ```
 
 ## R scripts for data visualization <a name="data.vis"></a>
-R scripts used in data visualization are available in the scripts directory in this GitHub repo
+R scripts and input data used in data visualization are available on Figshare
 
 ## System requirements
 
