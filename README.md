@@ -8,9 +8,9 @@ Eric S. Tvedte
 1. [Prepare sequencing files for assembly](#ecoli.prep)
 2. [Read length distributions](#ecoli.read)
 3. [E. coli genome assembly](#ecoli.asm)
-4. [Evaluation of E. coli genome assemblies and chimeras](#ecoli.eval)
+4. [Evaluation of E. coli genome assemblies](#ecoli.eval)
 5. [E. coli DNA modification analysis](#ecoli.dna.mod)  
-6. [E. coli plasmid quantification](#ecoli.plasmid)  
+6. [E. coli plasmid composition analysis](#ecoli.plasmid)  
 7. [D. ananassae genome assembly](#dana.canu)
 8. [Dana.UMIGS genome assembly](#dana.umigs)
 9. [Anchoring D. ananassae assembly contigs](#dana.anchor)
@@ -26,7 +26,7 @@ guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r9.4
 ```
 **Basecalling R10 ONT reads**
 ```
-guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10.3_450bps_hac.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 -x "cuda:5 cuda:6 cuda:7" > guppy.4.2.2.log
+guppy_basecaller --input_path fast5_dir --save_path output_dir --config dna_r10_450bps_hac.cfg --fast5_out --post_out --qscore_filtering --min_qscore 7 --records_per_fastq 10000000 -x "cuda:5 cuda:6 cuda:7" > guppy.4.2.2.log
 ```
 **Remove DNA Control Sequence from ONT LIG reads**
 ```
@@ -84,14 +84,14 @@ flye -t 24 --plasmids -o output.dir --pacbio-hifi pacbio.hifi.reads.fastq
 unicycler --mode normal --start_genes ecoli.dnaA.protein.fasta --long long.reads.fastq --short1 fwd.R1.fastq --short2 rev.R2.fastq -o output.dir -t 32  
 ```
 
-### E. coli genome assembly quality <a name="ecoli.eval"></a>   
+### Evaluation of E. coli genome assemblies <a name="ecoli.eval"></a>   
 **BUSCO: conserved genes** 
 ```
 busco --config config.ini -i contigs.fasta -c 8 -o output_dir -l bacteria -m geno  
 ```
 **QUAST: consensus identity, missassemblies**
 ```
-quast.py -m 0 -t 8 contigs.1.fasta contigs.2.fasta contigs.3.fasta -o output_dir -r Ecoli.UMIGS.2X.fasta
+quast.py -m 0 -t 8 ONT.RAPID.canu.raw.genome.contig.fasta ONT.RAPID.canu.polished.genome.contig.fasta ONT.RAPID.flye.genome.contig.fasta ONT.LIG.canu.raw.genome.contig.fasta ONT.LIG.canu.polished.genome.contig.fasta ONT.LIG.flye.genome.contig.fasta PB.RSII.canu.raw.genome.contig.fasta PB.RSII.canu.polished.genome.contig.fasta PB.RSII.flye.genome.contig.fasta PB.CLR.canu.raw.genome.contig.fasta PB.CLR.canu.polished.genome.contig.fasta PB.CLR.flye.genome.contig.fasta PB.HiFi.canu.raw.genome.contig.fasta PB.HiFi.canu.polished.genome.contig.fasta PB.HiFi.flye.genome.contig.fasta -r Ecoli.UMIGS.2X.fasta -o output_dir
 ```
 **Alvis: chimeric reads**  
 *Map ONT reads*  
@@ -133,7 +133,7 @@ samtools index chimeras.bam
 wc -l chimeras.candidates.txt #total chimeras mapped to E.coli genome
 samtools view sorted.bam -F 4 -F 256 -F 2048 ecoli.genome -c  #total primary reads mapped to E.coli genome
 ```
-### E. coli plasmid quantification <a name="ecoli.plasmid"></a>  
+### E. coli plasmid composition analysis <a name="ecoli.plasmid"></a>  
 **Minimap2: map long reads to Ecoli.UMIGS**  
 ```
 minimap2 -ax map-ont -t 8 Ecoli.UMIGS.fasta ont.reads.fastq | samtools sort -o ont.sorted.bam 
@@ -141,7 +141,7 @@ minimap2 -ax map-pb -t 8 Ecoli.UMIGS.fasta pb.reads.fastq | samtools sort -o pb.
 ```
 **BWA-MEM: map short reads to Ecoli.UMIGS**
 ```
-bwa mem -k 23 -t 8 Ecoli.UMIGS.fasta fwd.R1.fastq rev.R2.fastq | samtools sort -o sorted.illumina.bam  
+bwa mem -k 23 -t 8 Ecoli.UMIGS.fasta illumina.R1.fastq illumina.R2.fastq | samtools sort -o sorted.illumina.bam  
 ```
 **PICARD: remove Illumina duplicates** 
 ```
@@ -167,39 +167,29 @@ pbmm2 align Ecoli.UMIGS.fasta subreads.bam RSII.mapped_sorted.bam --sort -j 16 -
 samtools index RSII.mapped_sorted.bam
 pbindex RSII.mapped_sorted.bam
 ipdSummary RSII.mapped_sorted.bam --reference Ecoli.UMIGS.fasta --gff pb.basemods.gff --csv pb.basemods.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET
-
 motifMaker find -f Ecoli.UMIGS.fasta -g pb.basemods.gff -o pb.motifs.csv
-
 motifMaker reprocess -f Ecoli.UMIGS.fasta -g pb.basemods.gff -m pb.motifs.csv -o pb.motifs.gff
 ```
 **PacBio Sequel II CLR reads**
 ```
 smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml SQII.CLR.subreads.bam
 smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml Ecoli.UMIGS.fasta
-
 smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
-
 smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
 ```
 
 **ONT reads**
 ```
 tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
-
 tombo resquiggle fast5_dir Ecoli.UMIGS.fasta --processes 16 --num-most-common-errors 5
-
 tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
-
 tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
-
 tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif GATC --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.GATC.pdf
-
 tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif CCWGG --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.CCWGG.pdf
-
 tombo plot roc --statistics-filenames RAPID.5mC.tombo.stats RAPID.6mA.tombo.stats LIG.5mC.tombo.stats LIG.6mA.tombo.stats --motif-descriptions CCWGG:2:"CCWGG RAPID" GATC:2:"GATC RAPID" CCWGG:2:"CCWGG LIG"::GATC:2:"GATC LIG" --genome-fasta Ecoli.UMIGS.fasta
 ```
 
-**Plot PacBio modification QV versus ONT dampened fraction**
+**Plot PacBio modification QV versus ONT dampened fraction**  
 *PacBio*
 ```
 grep 'm6A' pb.motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.basemods.m6A.tsv
@@ -207,9 +197,7 @@ grep 'm6A' pb.motifs.gff | awk '{print $1"\t"$4"\t"$6}' > pb.basemods.m6A.tsv
 *ONT*
 ```
 tombo detect_modifications alternative_model --alternate-bases 6mA --fast5-basedirs fast5_dir --statistics-file-basename ONT.6mA.alt --processes 16
-
 tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.6mA.alt.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
-
 wig2bed < ONT.6mA.alt.dampened_fraction_modified_reads.plus.wig > ONT.6mA.alt.dampened_fraction_modified_reads.plus.bed  
 awk '{print $1"\t"$3"\t"$5}' ONT.6mA.alt.dampened_fraction_modified_reads.plus.bed > ONT.6mA.alt.dampened_fraction_modified_reads.plus.final.tsv  
 wig2bed < ONT.6mA.alt.dampened_fraction_modified_reads.minus.wig > ONT.6mA.alt.dampened_fraction_modified_reads.minus.bed  
@@ -265,7 +253,7 @@ cat chr* pb.clr.canu.non.chr.contigs.fasta > pb.clr.merge.fasta
 **Merge and polish**
 ```
 seqkit seq -m 50000 pb.hifi.contigs.fasta > pb.hifi.50kbp.contigs.fasta
-merge_wrapper.py pb.clr.merge.fasta pb.hifi.50kbp.contigs.fasta
+quickmerge/merge_wrapper.py pb.clr.merge.fasta pb.hifi.50kbp.contigs.fasta
 pbmm2 align merged.asm.fasta pb.clr.subreads.bam aln.bam --sort -j 16 -J 8 
 arrow -j 16 --algorithm arrow --noEvidenceConsensusCall reference --referenceFilename merged.asm.fasta aln.bam -o arrow.polished.fasta -o arrow.polished.gff
 minimap2 -t 16 -ax map-pb arrow.polished.fasta pb.hifi.reads.fastq | samtools view -@ 24 -bS - | samtools sort -@ 24 -o  LongRead.bam -
@@ -287,7 +275,7 @@ seqkit grep -f chr.arm.contigs.list asm.fasta > chr.arm.contigs.fasta
 blastn -query chrom.map.loci.fasta -db chr.arm.contigs.fasta -max_target_seqs 1 -max_hsps 1 -outfmt "6 qseqid sseqid pident length sstart send sstrand evalue slen" > final.blast.out
 ```
 
-**Chromosome 4 contigs and LGT contigs**
+**Heterochromatic contigs**  
 *Chromosome 4*
 ```
 minimap2 -cx asm5 /local/projects-t3/RDBKO/dana.postassembly/Dana.UMIGS.unpurged.contigs.fasta Leung2017_chr4_scaffolds.final.fasta --secondary=no > chr4.aln.paf
@@ -297,7 +285,6 @@ seqkit grep -f chr4.candidate.list Dana.UMIGS.contigs.fasta > chr4.candidate.con
 nucmer -l 1000 --prefix chr4 Leung2017_chr4_scaffolds.final.fasta chr4.candidate.contigs.fasta
 mummerplot --color --png --prefix chr4 chr4.delta #manually inspect and refine results
 ```
-
 *LGT*
 ```
 nucmer -l 1000 --prefix asm.LGT wAna.genome.fasta asm.fasta
@@ -369,15 +356,14 @@ purge_haplotigs hist -b het.aln.bam -g Dana.UMIGS.fasta -t 4
 ## D. ananassae DNA modification analysis <a name="dana.dna.mod"></a>
 ```
 tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
-
 tombo resquiggle fast5_dir Dana.UMIGS.fasta --processes 16 --num-most-common-errors 5
-
 tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
-
 tombo text_output signif_sequence_context --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --num-regions 1000 --num-bases 50
-
 meme -oc Dana.tombo.meme -dna -mod zoops -nmotifs 50 tombo.significant_regions.fasta
 ```
+
+## R scripts for data visualization <a name="data.vis"></a>
+R scripts used in data visualization are available in the GitHub directory Rscripts
 
 ## System requirements
 
