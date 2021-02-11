@@ -163,7 +163,8 @@ grep p5217 aln.depth.tx | awk '{total = total + $3}END{print "Total p5217 depth 
 
 **PacBio RS II reads**
 ```
-pbmm2 align Ecoli.UMIGS.fasta subreads.bam RSII.mapped_sorted.bam --sort -j 16 -J 8
+samtools faidx Ecoli.UMIGS.fasta ecoli.genome > Ecoli.UMIGS.genome.fasta
+pbmm2 align Ecoli.UMIGS.genome.fasta subreads.bam RSII.mapped_sorted.bam --sort -j 16 -J 8
 samtools index RSII.mapped_sorted.bam
 pbindex RSII.mapped_sorted.bam
 ipdSummary RSII.mapped_sorted.bam --reference Ecoli.UMIGS.fasta --gff pb.basemods.gff --csv pb.basemods.csv --pvalue 0.001 --numWorkers 16 --identify m4C,m6A,m5C_TET
@@ -173,7 +174,7 @@ motifMaker reprocess -f Ecoli.UMIGS.fasta -g pb.basemods.gff -m pb.motifs.csv -o
 **PacBio Sequel II CLR reads**
 ```
 smrtcmds/bin/dataset create --type SubreadSet --name ecoli.subreadset subreadset.xml SQII.CLR.subreads.bam
-smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml Ecoli.UMIGS.fasta
+smrtcmds/bin/dataset create --type ReferenceSet --name ecoli.referenceset referenceset.xml Ecoli.UMIGS.genome.fasta
 smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True
 smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t kineticstools_compute_methyl_fraction=True -t kineticstools_identify_mods=m4C,m6A,m5C_TET -t run_find_motifs=True -t motif_min_score=125
 ```
@@ -181,7 +182,7 @@ smrtcmds/bin/pbcromwell run pb_basemods -e subreadset.xml -e referenceset.xml -t
 **ONT reads**
 ```
 tombo preprocess annotate_raw_with_fastqs --overwrite --fast5-basedir fast5_dir --fastq-filenames ont.reads.fastq --processes 16
-tombo resquiggle fast5_dir Ecoli.UMIGS.fasta --processes 16 --num-most-common-errors 5
+tombo resquiggle fast5_dir Ecoli.UMIGS.genome.fasta --processes 16 --num-most-common-errors 5
 tombo detect_modifications de_novo --fast5-basedirs fast5_dir --statistics-file-basename ONT.denovo --processes 16
 tombo text_output browser_files --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --file-types dampened_fraction --browser-file-basename ONT.denovo
 tombo plot motif_with_stats --fast5-basedirs fast5_dir --statistics-filename ONT.denovo.tombo.stats --genome-fasta ecoli.unicycler.consensus.fasta --motif GATC --plot-standard-model --num-statistics 10000 --num-regions 1 --pdf-filename ONT.denovo.plot.GATC.pdf
