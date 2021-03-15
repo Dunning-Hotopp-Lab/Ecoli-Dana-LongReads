@@ -336,9 +336,10 @@ mummerplot --color --postscript --small --prefix chr.align -Q chr.contig.orienta
 ```
 nucmer -l 1000 --prefix firstpass wAna.genome.fasta asm.fasta
 show-coords -r -T firstpass.delta > firstpass.coords
-tail -n +5 finalpass.coords | awk '{print $9}' | sort -n | uniq > LGT.contigs.list
+tail -n +5 firstpass.coords | awk '{print $9}' | sort -n | uniq > LGT.contigs.list
 seqkit grep -f LGT.contigs.list asm.fasta > LGT.contigs.fasta
 nucmer -l 1000 --prefix finalpass wAna.genome.fasta LGT.contigs.fasta
+show-coords -r -T finalpass.delta > finalpass.coords
 tail -n +5 finalpass.coords | awk '{print $9"\t"$3"\t"$4}' > finalpass.bed
 fixbed.R finalpass.bed fixed.bed
 bedtools coverage -a fixed.bed -b fixed.bed -hist | grep all | awk '{total = total + $3}END{print "LGT segment length = "total}' #estimates alignment block length of wAna to LGT
